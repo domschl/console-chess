@@ -5,6 +5,7 @@ Simplistic chess implementation using only Unicode chess font graphics for testi
 None. Console font needs to support Unicode characters for chess.
 
 # Build
+`console-chess` uses the `cmake` build system:
 ```bash
 mkdir Build
 cd Build
