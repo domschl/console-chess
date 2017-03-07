@@ -583,96 +583,10 @@ public:
         return res;
     }
 
-    int miniMax(char *pos, int col, int depth, int curdepth, wstring &movstack, char **pnpos) {
-        vector<char *>ml;
-        int sc,bs;
-        char *bp;
-        ml=moveList(pos,col);
-        bs=SC_MIN;
-        bp=nullptr;
-        wstring stack,stack0,beststack;
-        stack0=movstack;
-        int nr=0;
-        if (curdepth==0) {
-            for (auto pi : ml) {
-                wstring ms=movSc(pi);
-                wcout << ms << "  ";
-            }
-            wcout << endl;
-        }
-        wstring ms;
-        for (auto pi : ml) {
-            stack=stack0;
-            if (bp==nullptr) bp=pi;
-            if (stack.size()>0) stack += L", ";
-            ms=movSc(pi);
-            stack +=  ms;
-            movstack=stack;
-            ++nr;
-            if (depth>0 || (curdepth<12 && pi[POS_CAPT]!=FIELD_EMPTY)) {
-                sc=miniMax(pi,col*(-1),depth-1, curdepth+1, movstack, nullptr);
-                sc = sc  * (-1);
-                *(int *)&pi[POS_SCORE]=sc;
-            } else {
-                sc = *(int *)&pi[POS_SCORE];
-            }
-            if (sc>bs) {
-                bs=sc;
-                bp=pi;
-                beststack=movstack;
-                //for (int i=0; i<curdepth; i++ ) wcout << L" ";
-                if (curdepth<1) wcout << movstack << " Score: " << bs << " @ " << curdepth <<  endl;
-            }
-            //if (curdepth>1 && nr>4) break;
-            if (curdepth>1 && nr>4) break;
-            if (curdepth>2 && nr>3) break;
-            if (curdepth>3 && nr>2) break;
-        }
-        if (pnpos!=nullptr) {
-            *pnpos=(char *)malloc(POS_SIZE*sizeof(char));
-            memcpy((void *)*pnpos,bp,POS_SIZE*sizeof(char));
-        }
-        if (curdepth==0) {
-            std::sort(ml.begin(), ml.end(), scoresort);
-            for (auto pi : ml) {
-                wstring ms=movSc(pi);
-                wcout << ms << "  ";
-            }
-            wcout << endl;
-        }
-        for (auto pi : ml) {
-            delete pi;
-        }
-        movstack=beststack;
-        return bs;
-    }
     int posScore(char *pos) {
         return *(int *)&pos[POS_SCORE];
     }
-    /*
-    01 function alphabeta(node, depth, α, β, maximizingPlayer)
-    02      if depth = 0 or node is a terminal node
-    03          return the heuristic value of node
-    04      if maximizingPlayer
-    05          v := -∞
-    06          for each child of node
-    07              v := max(v, alphabeta(child, depth – 1, α, β, FALSE))
-    08              α := max(α, v)
-    09              if β ≤ α
-    10                  break (* β cut-off *)
-    11          return v
-    12      else
-    13          v := ∞
-    14          for each child of node
-    15              v := min(v, alphabeta(child, depth – 1, α, β, TRUE))
-    16              β := min(β, v)
-    17              if β ≤ α
-    18                  break (* α cut-off *)
-    19          return v
 
-    (* Initial call *)
-    alphabeta(origin, depth, -∞, +∞, TRUE)
-    */
     int TO_INV_VAL=-3333333;
 
     int alphabeta(char *pos, int a, int b, int col, bool bMax, int depth, int curdepth, time_t maxtime, wstring &movstack, char **pnpos, vector<char *>*pmlo) {
@@ -854,34 +768,28 @@ public:
 
     int makeMove(char *pos,int col, std::map<string, int> &heuristic, char **pnpos) {
         int sc=0;
-        int mode=1; // 0: minimax, 1: alphabeta pruning
         int depth=heuristic["depth"];
         time_t maxtime, t;
         int sco;
         time(&maxtime);
         maxtime += heuristic["maxtime"];
-        if (mode==0) {
+        vector<char *>ml;
+        int depthi;
+        ml=moveList(pos,col);
+        for (depthi=4; depthi<=depth; depthi+=1) {
+            wcout << L"[L:" << depthi << L"] ";
+            int a=SC_MIN;
+            int b=SC_MAX;
             wstring buf=L"";
-            sc=miniMax(pos,col,depth-1,0,buf,pnpos);
-        } else {
-            vector<char *>ml;
-            int depthi;
-            ml=moveList(pos,col);
-            for (depthi=4; depthi<=depth; depthi+=1) {
-                wcout << L"[L:" << depthi << L"] ";
-                int a=SC_MIN;
-                int b=SC_MAX;
-                wstring buf=L"";
-                sc=alphabeta(pos,a,b,col,true,depthi,0,maxtime,buf,pnpos,&ml);
-                if (sc==TO_INV_VAL) {
-                    sc=sco;
-                    break;
-                } else {
-                    sco=sc;
-                }
-                time(&t);
-                if (t>=maxtime) break;
+            sc=alphabeta(pos,a,b,col,true,depthi,0,maxtime,buf,pnpos,&ml);
+            if (sc==TO_INV_VAL) {
+                sc=sco;
+                break;
+            } else {
+                sco=sc;
             }
+            time(&t);
+            if (t>=maxtime) break;
         }
         return sc;
     }
