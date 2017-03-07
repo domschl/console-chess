@@ -74,14 +74,14 @@ void got(int cy, int cx) {
 #define COL(of) (of%10-1)
 #define ROW(of) (of/10-2)
 
-#define SC_MIN (-99999999.0)
-#define SC_MAX ( 99999999.0)
+#define SC_MIN (-9999999)
+#define SC_MAX ( 9999999)
 
 //class Chess;
 //bool Chess::isThreatened(char *pos,int cy, int cx, int col);
 bool scoresort(char *p1, char *p2) {
-    float sc1=*(float *)&p1[POS_SCORE];
-    float sc2=*(float *)&p2[POS_SCORE];
+    float sc1=*(int *)&p1[POS_SCORE];
+    float sc2=*(int *)&p2[POS_SCORE];
     return sc1>sc2;
 }
 
@@ -423,50 +423,49 @@ public:
                 }
             }
         }
-        float sc;
+        int sc;
         for (auto pi : ml) {
             sc=evalPos(pi,col);
-            *(float *)&pi[POS_SCORE]=sc;   // uhhh 1982..
+            *(int *)&pi[POS_SCORE]=sc;   // uhhh 1982..
         }
         std::sort(ml.begin(), ml.end(), scoresort);
         return ml;
     }
 
-    float stratVal(char *pos, int col) {
+    int stratVal(char *pos, int col) {
         int cx,cy;
-        float sc=0.0;
+        int sc=0;
         int sval[POS_SIZE];
-        char figAttack[]{4,20,4,3,3,1,1,1,1,1,1,1,1};
-        //float figAttack[]{1.2,1.2,1.2,1.2,1.2,1.2,0,1.1,1.1,1.1,1.1,1.1,1.1};
+        char figAttack[]{4,20,4,3,3,1,2,2,2,2,1,0,0};
         int no[]{21,-21,19,-19,8,12,-8,-12};
         int bo[]{11,-11,9,-9};
         int ro[]{10,-10,1,-1};
         int ko[]{11,-11,9,-9,10,-10,1,-1};
         int d,of,f;
-        float vf;
-        float atc=0;
+        int vf;
+        int atc=0;
         int mov;
         memset(sval,0,POS_SIZE*sizeof(int));
         for (cy=0; cy<8; cy++) {
             for (cx=0; cx<8; cx++) {
                 of=FOF(cy,cx);
                 f=pos[of];
-                if (pos[FOF(cy-col,cx+1)]==FIELD_BP * col) {sval[of] -= 20;}//atc-=vf;
-                if (pos[FOF(cy-col,cx-1)]==FIELD_BP * col) {sval[of] -=20;}///atc-=vf;
-                if (pos[FOF(cy+col,cx+1)]==FIELD_WP * col) sval[of] += 20; //atc+=vf;
-                if (pos[FOF(cy+col,cx-1)]==FIELD_WP * col) sval[of] += 20; //atc+=vf;
+                if (pos[FOF(cy-col,cx+1)]==FIELD_BP * col) {sval[of] -= 4;}//atc-=vf;
+                if (pos[FOF(cy-col,cx-1)]==FIELD_BP * col) {sval[of] -=4;}///atc-=vf;
+                if (pos[FOF(cy+col,cx+1)]==FIELD_WP * col) sval[of] += 4; //atc+=vf;
+                if (pos[FOF(cy+col,cx-1)]==FIELD_WP * col) sval[of] += 4; //atc+=vf;
                 for (d=0; d<sizeof(no)/sizeof(no[0]); d++) {
-                    if (pos[of+no[d]]==FIELD_BN * col) sval[of] -= 9; // atc-=vf;
-                    if (pos[of+no[d]]==FIELD_WN * col) sval[of] += 9; // atc+=vf;
+                    if (pos[of+no[d]]==FIELD_BN * col) sval[of] -= 3; // atc-=vf;
+                    if (pos[of+no[d]]==FIELD_WN * col) sval[of] += 3; // atc+=vf;
                 }
                 for (d=0; d<sizeof(bo)/sizeof(bo[0]); d++) {
                     bool val=true;
                     int of0=of;
                     while (val) {
                         of0 += bo[d];
-                        if (pos[of0]==FIELD_BB * col) sval[of] -= 8; //atc-=vf;
+                        if (pos[of0]==FIELD_BB * col) sval[of] -= 3; //atc-=vf;
                         if (pos[of0]==FIELD_BQ * col) sval[of] -= 2; //atc-=vf;
-                        if (pos[of0]==FIELD_WB * col) sval[of] += 8; //atc+=vf;
+                        if (pos[of0]==FIELD_WB * col) sval[of] += 3; //atc+=vf;
                         if (pos[of0]==FIELD_WQ * col) sval[of] += 2; //atc+=vf;
                         if (pos[of0]!=FIELD_EMPTY) val=false;
                     }
@@ -476,9 +475,9 @@ public:
                     int of0=of;
                     while (val) {
                         of0 += ro[d];
-                        if (pos[of0]==FIELD_BR * col) sval[of] -= 4; // atc-=vf;
+                        if (pos[of0]==FIELD_BR * col) sval[of] -= 3; // atc-=vf;
                         if (pos[of0]==FIELD_WQ * col) sval[of] += 2; // atc+=vf;
-                        if (pos[of0]==FIELD_BR * col) sval[of] -= 4; // atc-=vf;
+                        if (pos[of0]==FIELD_BR * col) sval[of] -= 3; // atc-=vf;
                         if (pos[of0]==FIELD_WQ * col) sval[of] += 2; // atc+=vf;
                         if (pos[of0]!=FIELD_EMPTY) val=false;
                     }
@@ -490,64 +489,69 @@ public:
             }
         }
 
-        float norm=5.0;
+        int norm=3;
         //float anorm=4.0;
         mov=0;
+        int ac;
         for (int i=0; i<POS_SIZE; i++) {
             mov += sval[i];
             if (sval[i]) {
-                //atc+=sval[i]*anorm*col;
-                vf=figAttack[f*col+6];
+                //atc+=sval[i]*anorm*col
+                if (sval[i]<0) ac=-1; else ac=1;
+                vf=figAttack[pos[i]*ac+6];
                 //if (sval[i]<0) atc -= vf*norm;
                 //else atc += vf*norm;
                 atc += vf*norm*sval[i];
             }
         }
-        float movnorm=2;
-        atc +=mov*col*movnorm;
+        float movnorm=4;
+        atc +=mov*movnorm;
 
-        atc +=(sval[FOF(3,3)] + sval[FOF(3,4)] + sval[FOF(4,3)] + sval[FOF(4,4)]) * col * 0.15;
-        atc +=(sval[FOF(3,2)] + sval[FOF(3,5)] + sval[FOF(4,2)] + sval[FOF(4,5)]) * col * 0.08;
+        int znorm=3;
+        atc +=(sval[FOF(3,3)] + sval[FOF(3,4)] + sval[FOF(4,3)] + sval[FOF(4,4)]) * znorm;
+        atc +=(sval[FOF(3,2)] + sval[FOF(3,5)] + sval[FOF(4,2)] + sval[FOF(4,5)]) * znorm;
 
         int ofx, ofy;
         ofy=ROW(pos[POS_WK]);
         ofx=COL(pos[POS_WK]);
-        float ks=0.0;
+        int ks=0;
         for (cy=-2; cy<3; cy++) {
             for (cy=-2; cy<3; cy++) {
                 if (std::abs(cx)>std::abs(cy)) d=std::abs(cx);
                 else d=std::abs(cy);
                 d=3-d;
-                ks += (sval[FOF(ofy+cy,ofx+cx)]*col*d)/20.0;
+                ks += (sval[FOF(ofy+cy,ofx+cx)]*d);
             }
         }
 
         ofy=ROW(pos[POS_BK]);
         ofx=COL(pos[POS_BK]);
         //ks=0.0;
+        int knorm=1;
+        int kdiv=3;
         for (cy=-2; cy<3; cy++) {
             for (cy=-2; cy<3; cy++) {
                 if (std::abs(cx)>std::abs(cy)) d=std::abs(cx);
                 else d=std::abs(cy);
                 d=3-d;
-                ks += (sval[FOF(ofy+cy,ofx+cx)]*col*d)/20.0;
+                ks += (sval[FOF(ofy+cy,ofx+cx)]*d)*knorm;
             }
         }
+        ks /= kdiv;
 
-        float knorm=1.0;
-        sc=ks*knorm+atc/30.0;
+        sc=(knorm+atc)/3;
 
-        float cnorm=0.8;
-        if (pos[POS_WKC]==0) sc-=col*40*cnorm;
+        int cnorm=1;
+        if (pos[POS_WKC]==0) sc-=col*20*cnorm;
         if (pos[POS_WQC]==0) sc-=col*20*cnorm;
-        if (pos[POS_BKC]==0) sc+=col*40*cnorm;
+        if (pos[POS_BKC]==0) sc+=col*30*cnorm;
         if (pos[POS_BQC]==0) sc+=col*20*cnorm;
-        if (pos[POS_WKC]==2) sc+=col*60*cnorm;
-        if (pos[POS_BKC]==2) sc-=col*60*cnorm;
+        if (pos[POS_WKC]==2) sc+=col*40*cnorm;
+        if (pos[POS_BKC]==2) sc-=col*40*cnorm;
         return sc;
     }
 
-    float evalPos(char *pos, int col) {
+    int evalPos(char *pos, int col) {
         int cx,cy;
         int f,fn,m;
         float sc=0.0;
@@ -568,18 +572,20 @@ public:
     }
 
     wstring movSc(char *pos) {
-        wstring strmov;
+        wstring strmov,sig;
         move2String(pos,strmov);
-        int fc=((int)(*(float *)&pos[POS_SCORE] * 100));
-        int fc1=fc/100;
+        int fc=((int)(*(int *)&pos[POS_SCORE]));
+        if (pos[POS_LASTMV1]<0) fc=fc*(-1);
+        if (fc<0) sig=L"-"; else sig=L"";
+        int fc1=std::abs(fc/100);
         int fc2=std::abs(fc%100);
-        wstring res=strmov+L" ("+std::to_wstring(fc1)+L"."+std::to_wstring(fc2)+L")";
+        wstring res=strmov+L" ("+sig+std::to_wstring(fc1)+L"."+std::to_wstring(fc2)+L")";
         return res;
     }
 
-    float miniMax(char *pos, int col, int depth, int curdepth, wstring &movstack, char **pnpos) {
+    int miniMax(char *pos, int col, int depth, int curdepth, wstring &movstack, char **pnpos) {
         vector<char *>ml;
-        float sc,bs;
+        int sc,bs;
         char *bp;
         ml=moveList(pos,col);
         bs=SC_MIN;
@@ -606,9 +612,9 @@ public:
             if (depth>0 || (curdepth<12 && pi[POS_CAPT]!=FIELD_EMPTY)) {
                 sc=miniMax(pi,col*(-1),depth-1, curdepth+1, movstack, nullptr);
                 sc = sc  * (-1);
-                *(float *)&pi[POS_SCORE]=sc;
+                *(int *)&pi[POS_SCORE]=sc;
             } else {
-                sc = *(float *)&pi[POS_SCORE];
+                sc = *(int *)&pi[POS_SCORE];
             }
             if (sc>bs) {
                 bs=sc;
@@ -640,8 +646,8 @@ public:
         movstack=beststack;
         return bs;
     }
-    float posScore(char *pos) {
-        return *(float *)&pos[POS_SCORE];
+    int posScore(char *pos) {
+        return *(int *)&pos[POS_SCORE];
     }
     /*
     01 function alphabeta(node, depth, α, β, maximizingPlayer)
@@ -667,13 +673,13 @@ public:
     (* Initial call *)
     alphabeta(origin, depth, -∞, +∞, TRUE)
     */
-    float TO_INV_VAL=-33333333;
+    int TO_INV_VAL=-3333333;
 
-    float alphabeta(char *pos, float a, float b, int col, bool bMax, int depth, int curdepth, time_t maxtime, wstring &movstack, char **pnpos, vector<char *>*pmlo) {
-        float bsc,sc,bv,v;
+    int alphabeta(char *pos, int a, int b, int col, bool bMax, int depth, int curdepth, time_t maxtime, wstring &movstack, char **pnpos, vector<char *>*pmlo) {
+        int bsc,sc,bv,v;
         char *bp=nullptr;
         int nr,silnr;
-        bool bSortShow=false;
+        bool bSortShow=true;
         bool bSortShowO=false;
         vector<char *> ml{};
         wstring stack,stack0,beststack,ms;
@@ -702,15 +708,15 @@ public:
 
         if (ml.size()==0) {
             if (col==CW) {
-                if (pos[POS_WK_CHK]) return -100000.0-depth*1000;
+                if (pos[POS_WK_CHK]) return -100000-depth*1000;
                 else return 0.0;
             } else {
-                if (pos[POS_BK_CHK]) return -100000.0-depth*1000;
+                if (pos[POS_BK_CHK]) return -100000-depth*1000;
                 else return 0.0;
             }
         } else {
             bp=ml[0];
-            bsc=*(float *)&ml[0][POS_SCORE];
+            bsc=*(int *)&ml[0][POS_SCORE];
         }
         if (bSortShow) {
             if (curdepth==0) {
@@ -726,7 +732,7 @@ public:
 
         time_t t;
         time(&t);
-        if (maxtime==0 || t<maxtime) {
+        if (true) {
             if (bMax) {
                 bsc=SC_MIN;
                 bv=SC_MIN;
@@ -745,13 +751,13 @@ public:
                     if (v==TO_INV_VAL) break;
                     sc=v*(-1);
                     v=v*(-1);
-                    *(float *)&pi[POS_SCORE]=sc;
+                    *(int *)&pi[POS_SCORE]=sc;
                     if (sc>bsc) {
                         bsc=sc;
 
                         bp=pi;
                         beststack=movstack;
-                        if (curdepth<1) wcout << movstack << " Score: " << bsc << " @ " << curdepth <<  endl;
+                        if (curdepth<1) wcout << movstack <<  endl;
                     }
                     if (v>bv) bv=v;
                     if (bv>a) {
@@ -784,7 +790,7 @@ public:
                     sc=v*(-1);
                     //v=v*(-1);
                     //v=v*col*(-1);
-                    *(float *)&pi[POS_SCORE]=sc;
+                    *(int *)&pi[POS_SCORE]=sc;
                     if (sc>bsc) {
                         bsc=sc;
 
@@ -846,12 +852,12 @@ public:
         return bsc;
     }
 
-    float makeMove(char *pos,int col, std::map<string, int> &heuristic, char **pnpos) {
-        float sc=0;
+    int makeMove(char *pos,int col, std::map<string, int> &heuristic, char **pnpos) {
+        int sc=0;
         int mode=1; // 0: minimax, 1: alphabeta pruning
         int depth=heuristic["depth"];
         time_t maxtime, t;
-        float sco;
+        int sco;
         time(&maxtime);
         maxtime += heuristic["maxtime"];
         if (mode==0) {
@@ -862,9 +868,9 @@ public:
             int depthi;
             ml=moveList(pos,col);
             for (depthi=4; depthi<=depth; depthi+=1) {
-                wcout << L"Level " << depthi << endl;
-                float a=SC_MIN;
-                float b=SC_MAX;
+                wcout << L"[L:" << depthi << L"] ";
+                int a=SC_MIN;
+                int b=SC_MAX;
                 wstring buf=L"";
                 sc=alphabeta(pos,a,b,col,true,depthi,0,maxtime,buf,pnpos,&ml);
                 if (sc==TO_INV_VAL) {
@@ -888,7 +894,7 @@ int main(int argc, char *arv[]) {
     //wcout << c.stratVal(c.pos,CW) << endl;
     //wcout << c.stratVal(c.pos,CB) << endl;
 
-    float sc=0.0;
+    int sc=0;
     char *npos;
     int col=1;
     char *pos;
@@ -909,8 +915,8 @@ int main(int argc, char *arv[]) {
         if (npos!=nullptr) {
             pos=npos;
             c.printPos(pos,-1);
-            c.move2String(pos,move);
-            wcout << move << L" Score: " << sc << endl;
+            move=c.movSc(pos);
+            wcout << move << endl;
             col=col*(-1);
 
             ml=c.moveList(pos,col);
