@@ -216,8 +216,9 @@ public:
         }
     }
 
-    Chess() {
+    Chess(int cachsize=10000000) {
         int i;
+        cachesize=cachsize;
         memset(pos,0,POS_SIZE*sizeof(char));
         for (i=0; i<POS_CTRL_OFFSET; i++) pos[i]=FIELD_INV;
         int cx,cy;
@@ -255,6 +256,11 @@ public:
             cachepositions.push_back((char *)malloc(POS_SIZE*sizeof(char)));
         }
         wcout << L"cache-size:" << cachepositions.size() << endl;
+    }
+    ~Chess() {
+        for (int i=0; i<cachesize; i++) {
+            free(cachepositions[i]);
+        }
     }
 
     void move2String(char *pos, wstring& strmov) {
@@ -728,6 +734,7 @@ public:
         int bsc,sc,bv,v;
         char *bp=nullptr;
         int nr,silnr;
+        bool bTo=false;
         bool bSortShow=false;
         bool bSortShowO=false;
         vector<char *> ml{};
@@ -789,31 +796,29 @@ public:
 
                 if (!cacheRead(pi,&v,depth-curdepth)) {
                     v=alphabeta(pi,a,b,CB,false,depth-1,curdepth+1, pcurnodes, maxtime,movstack,nullptr,nullptr);
-                    if (v==SC_TIMEOUT_INVALID) break;
-                    cacheInsert(pi,v,depth-curdepth);
+                    if (v!=SC_TIMEOUT_INVALID)
+                        cacheInsert(pi,v,depth-curdepth);
+                    else bTo=true;
                 }
+                if (!bTo) {
+                    sc=v*(-1);
+                    v=v*(-1);
+                    *(int *)&pi[POS_SCORE]=sc;
+                    if (sc>bsc) {
+                        bsc=sc;
 
-                sc=v*(-1);
-                v=v*(-1);
-                *(int *)&pi[POS_SCORE]=sc;
-                if (sc>bsc) {
-                    bsc=sc;
-
-                    bp=pi;
-                    beststack=movstack;
-                    if (curdepth<1) wcout << movstack <<  endl;
+                        bp=pi;
+                        beststack=movstack;
+                        if (curdepth<1) wcout << movstack <<  endl;
+                    }
+                    if (v>bv) bv=v;
+                    if (bv>a) {
+                        a=bv;
+                    }
+                    if (b <= a) { // beta cut-off
+                        break;
+                    }
                 }
-                if (v>bv) bv=v;
-                if (bv>a) {
-                    a=bv;
-                }
-                if (b <= a) { // beta cut-off
-                    break;
-                }
-
-                //if (curdepth>2 && silnr>4) break;
-                //if (curdepth>3 && silnr>3) break;
-                //if (curdepth>4 && silnr>2) break;
             }
         } else {
             bsc=SC_MIN;
@@ -832,32 +837,28 @@ public:
 
                 if (!cacheRead(pi,&v,depth-curdepth+1)) {
                     v=alphabeta(pi,a,b,CW,true,depth-1,curdepth+1,pcurnodes,maxtime,movstack,nullptr,nullptr);
-                    if (v==SC_TIMEOUT_INVALID) break;
-                    cacheInsert(pi,v,depth-curdepth+1);
+                    if (v!=SC_TIMEOUT_INVALID)
+                        cacheInsert(pi,v,depth-curdepth+1);
+                    else bTo=true;
                 }
+                if (!bTo) {
+                    sc=v*(-1);
+                    *(int *)&pi[POS_SCORE]=sc;
+                    if (sc>bsc) {
+                        bsc=sc;
 
-                sc=v*(-1);
-                //v=v*(-1);
-                //v=v*col*(-1);
-                *(int *)&pi[POS_SCORE]=sc;
-                if (sc>bsc) {
-                    bsc=sc;
-
-                    bp=pi;
-                    beststack=movstack;
-                    if (curdepth<1) wcout << movstack << " Score: " << bsc << " @ " << curdepth <<  endl;
+                        bp=pi;
+                        beststack=movstack;
+                        if (curdepth<1) wcout << movstack << " Score: " << bsc << " @ " << curdepth <<  endl;
+                    }
+                    if (v<bv) bv=v;
+                    if (bv<b) {
+                        b=bv;
+                    }
+                    if (b <= a) { // alpha cut-off
+                        break;
+                    }
                 }
-                if (v<bv) bv=v;
-                if (bv<b) {
-                    b=bv;
-                }
-                if (b <= a) { // alpha cut-off
-                    break;
-                }
-
-                //if (curdepth>2 && silnr>4) break;
-                //if (curdepth>3 && silnr>3) break;
-                //if (curdepth>4 && silnr>2) break;
             }
         }
 
@@ -889,7 +890,7 @@ public:
             *pmlo=ml;
         } else {
             for (auto pi : ml) {
-                delete pi;
+                free(pi);
             }
         }
         movstack=beststack;
@@ -922,6 +923,9 @@ public:
             time(&t);
             if (t>=maxtime) break;
         }
+        for (auto pi : ml) {
+            free(pi);
+        }
         return sc;
     }
 
@@ -931,7 +935,7 @@ int main(int argc, char *arv[]) {
     std::setlocale (LC_ALL, "");
     checkStatics();
 
-    Chess c; // = new Chess();
+    Chess c(30000000); //no. of cache entries
     //wcout << c.stratVal(c.pos,CW) << endl;
     //wcout << c.stratVal(c.pos,CB) << endl;
 
@@ -947,7 +951,7 @@ int main(int argc, char *arv[]) {
     vector<char *> ml;
     std::map<string, int> heuristic;
     heuristic["depth"]=25;
-    heuristic["maxtime"]=30;
+    heuristic["maxtime"]=3;
     time_t starttime,endtime;
     pos=(char *)malloc(POS_SIZE*sizeof(char));
     memcpy((void *)pos,c.pos,POS_SIZE*sizeof(char));
@@ -962,7 +966,7 @@ int main(int argc, char *arv[]) {
         dt=endtime-starttime;
         if (dt>0) nps=curnodes/dt;
         else nps=0;
-        delete pos;
+        free(pos);
         if (npos!=nullptr) {
             pos=npos;
             c.printPos(pos,-1);
@@ -980,7 +984,11 @@ int main(int argc, char *arv[]) {
             while (!val) {
                 wcout << L"Your move: ";
                 std::wcin >> inp;
-
+                if (inp==L"q") {
+                    bOk=false;
+                    wcout << L"Quit." << endl;
+                    break;
+                }
                 int p1=(inp[0]-'a')+1+(8-(inp[1]-'0'))*10+20;
                 int p2=(inp[2]-'a')+1+(8-(inp[3]-'0'))*10+20;
                 val=false;
@@ -993,7 +1001,7 @@ int main(int argc, char *arv[]) {
                 }
                 if (!val) wcout << L"Invalid move!" << endl;
             }
-            for (auto mi : ml) delete mi;
+            for (auto mi : ml) free(mi);
             c.printPos(pos,-1);
             c.move2String(pos,move);
             wcout << move << endl;
@@ -1003,7 +1011,7 @@ int main(int argc, char *arv[]) {
             bOk=false;
         }
     }
-    if (npos!=nullptr) delete npos;
+    if (npos!=nullptr) free(npos);
 
     return 0;
 }
