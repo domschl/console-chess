@@ -41,7 +41,7 @@ void got(int cy, int cx) {
 
 //----------------Chess------------------------------
 // Constant for a chess position
-#define POS_SIZE 150
+#define POS_SIZE 140 // must be multiple of four
 
 #define CW 1    // White pieces >0
 #define CB -1   // black pieces <0
@@ -75,6 +75,18 @@ void got(int cy, int cx) {
 #define POS_BK_CHK  (POS_CTRL_OFFSET+11)  // 1: black king in check
 
 #define POS_SCORE   (POS_CTRL_OFFSET+12)  // Score of position as int (uhhh)
+#define POS_CURDEP  (POS_CTRL_OFFSET+16)  // Cache stores current depth
+
+void checkStatics() {
+    if (POS_CTRL_OFFSET+16+sizeof(int)!=POS_SIZE) {
+        wcout << L"Internal error with POS_SIZE!" << endl;
+        exit(-1);
+    }
+    if (sizeof(int)!=4) {
+        wcout << L"Integer-size assumed to 4, but is different" << endl;
+        exit(-1);
+    }
+}
 
 #define FOF(y,x) ((y+2)*10+x+1)
 #define COL(of) (of%10-1)
@@ -94,6 +106,65 @@ bool scoresort(char *p1, char *p2) {
 class Chess {
 public:
     char pos[POS_SIZE];
+
+    int cachepos=0;
+    int cacheclash=0;
+    int cacheclashr=0;
+    int cachehit=0;
+    int cachemiss=0;
+
+    std::map<int, int[2]> cache{};
+    vector <char *>cachepositions;
+
+    unsigned int cacheHash(char *pos) {
+        int i;
+        unsigned int h=0x4387afeb;
+        unsigned int hx[]{0x41353843,0x3f7c3bd,0xb31b30cd,0x29f1357e};
+        for (i=0; i<POS_SIZE/sizeof(int); i+=sizeof(int)) {
+            h ^= *(unsigned int *)&pos[i] ^ hx[i%4];
+        }
+        return h;
+    }
+
+    void cacheInsert(char *pos, int score, int curdepth) {
+        *(int *)&pos[POS_CURDEP]=curdepth;
+        char *p;
+        unsigned int h=cacheHash(pos);
+        if (cache.find(h)==cache.end()) {
+            p=(char *)malloc(POS_SIZE*sizeof(char));
+            memcpy(p,pos,POS_SIZE*sizeof(char));
+            cachepositions.push_back(p);
+            cache[h][0]=score;
+            cache[h][1]=cachepos;
+            ++cachepos;
+        } else {
+            ++cacheclash;
+        }
+    }
+
+    bool cacheRead(char *pos, int *pscore, int curdepth) {
+        *(int *)&pos[POS_CURDEP]=curdepth;
+        unsigned int h=cacheHash(pos);
+        if (cache.find(h)!=cache.end()) {
+            int idx=cache[h][1];
+            if (idx>cachepositions.size()) {
+                wcout << L"Illegal index: " << idx << endl;
+                exit(-1);
+            }
+            if (!memcmp(cachepositions[idx],pos,sizeof(char)*POS_SIZE)) {
+                ++cachehit;
+                *pscore=cache[h][0];
+                return true;
+            } else {
+                ++cacheclashr;
+                return false;
+            }
+        } else {
+            ++cachemiss;
+            return false;
+        }
+    }
+
     Chess() {
         int i;
         memset(pos,0,POS_SIZE*sizeof(char));
@@ -594,7 +665,7 @@ public:
     }
 
 
-    int alphabeta(char *pos, int a, int b, int col, bool bMax, int depth, int curdepth, time_t maxtime, wstring &movstack, char **pnpos, vector<char *>*pmlo) {
+    int alphabeta(char *pos, int a, int b, int col, bool bMax, int depth, int curdepth, int *pcurnodes, time_t maxtime, wstring &movstack, char **pnpos, vector<char *>*pmlo) {
         int bsc,sc,bv,v;
         char *bp=nullptr;
         int nr,silnr;
@@ -638,88 +709,97 @@ public:
 
         time_t t;
         time(&t);
-        if (true) {
-            if (bMax) {
-                bsc=SC_MIN;
-                bv=SC_MIN;
-                nr=0;
-                silnr=0;
-                for (auto pi : ml) {
-                    ++nr;
-                    if (pi[POS_CAPT]==FIELD_EMPTY) ++silnr;
-                    stack=stack0;
-                    if (stack.size()>0) stack += L", ";
-                    ms=movSc(pi);
-                    stack +=  ms;
-                    movstack=stack;
 
-                    v=alphabeta(pi,a,b,CB,false,depth-1,curdepth+1,maxtime,movstack,nullptr,nullptr);
+        if (bMax) {
+            bsc=SC_MIN;
+            bv=SC_MIN;
+            nr=0;
+            silnr=0;
+            for (auto pi : ml) {
+                ++nr;
+                ++*pcurnodes;
+                if (pi[POS_CAPT]==FIELD_EMPTY) ++silnr;
+                stack=stack0;
+                if (stack.size()>0) stack += L", ";
+                ms=movSc(pi);
+                stack +=  ms;
+                movstack=stack;
+
+                if (!cacheRead(pi,&v,curdepth+1)) {
+                    v=alphabeta(pi,a,b,CB,false,depth-1,curdepth+1, pcurnodes, maxtime,movstack,nullptr,nullptr);
                     if (v==SC_TIMEOUT_INVALID) break;
-                    sc=v*(-1);
-                    v=v*(-1);
-                    *(int *)&pi[POS_SCORE]=sc;
-                    if (sc>bsc) {
-                        bsc=sc;
-
-                        bp=pi;
-                        beststack=movstack;
-                        if (curdepth<1) wcout << movstack <<  endl;
-                    }
-                    if (v>bv) bv=v;
-                    if (bv>a) {
-                        a=bv;
-                    }
-                    if (b <= a) { // beta cut-off
-                        break;
-                    }
-
-                    //if (curdepth>2 && silnr>4) break;
-                    //if (curdepth>3 && silnr>3) break;
-                    //if (curdepth>4 && silnr>2) break;
+                    cacheInsert(pi,v,curdepth+1);
                 }
-            } else {
-                bsc=SC_MIN;
-                bv=SC_MAX;
-                nr=0;
-                silnr=0;
-                for (auto pi : ml) {
-                    ++nr;
-                    if (pi[POS_CAPT]==FIELD_EMPTY) ++silnr;
-                    stack=stack0;
-                    if (stack.size()>0) stack += L", ";
-                    ms=movSc(pi);
-                    stack +=  ms;
-                    movstack=stack;
 
-                    v=alphabeta(pi,a,b,CW,true,depth-1,curdepth+1,maxtime,movstack,nullptr,nullptr);
-                    if (v==SC_TIMEOUT_INVALID) break;
-                    sc=v*(-1);
-                    //v=v*(-1);
-                    //v=v*col*(-1);
-                    *(int *)&pi[POS_SCORE]=sc;
-                    if (sc>bsc) {
-                        bsc=sc;
+                sc=v*(-1);
+                v=v*(-1);
+                *(int *)&pi[POS_SCORE]=sc;
+                if (sc>bsc) {
+                    bsc=sc;
 
-                        bp=pi;
-                        beststack=movstack;
-                        if (curdepth<1) wcout << movstack << " Score: " << bsc << " @ " << curdepth <<  endl;
-                    }
-                    if (v<bv) bv=v;
-                    if (bv<b) {
-                        b=bv;
-                    }
-                    if (b <= a) { // alpha cut-off
-                        break;
-                    }
-
-                    //if (curdepth>2 && silnr>4) break;
-                    //if (curdepth>3 && silnr>3) break;
-                    //if (curdepth>4 && silnr>2) break;
+                    bp=pi;
+                    beststack=movstack;
+                    if (curdepth<1) wcout << movstack <<  endl;
                 }
+                if (v>bv) bv=v;
+                if (bv>a) {
+                    a=bv;
+                }
+                if (b <= a) { // beta cut-off
+                    break;
+                }
+
+                //if (curdepth>2 && silnr>4) break;
+                //if (curdepth>3 && silnr>3) break;
+                //if (curdepth>4 && silnr>2) break;
             }
+        } else {
+            bsc=SC_MIN;
+            bv=SC_MAX;
+            nr=0;
+            silnr=0;
+            for (auto pi : ml) {
+                ++nr;
+                ++*pcurnodes;
+                if (pi[POS_CAPT]==FIELD_EMPTY) ++silnr;
+                stack=stack0;
+                if (stack.size()>0) stack += L", ";
+                ms=movSc(pi);
+                stack +=  ms;
+                movstack=stack;
 
-            if (curdepth>0 && v==SC_TIMEOUT_INVALID) return SC_TIMEOUT_INVALID;
+                if (!cacheRead(pi,&v,curdepth+1)) {
+                    v=alphabeta(pi,a,b,CW,true,depth-1,curdepth+1,pcurnodes,maxtime,movstack,nullptr,nullptr);
+                    if (v==SC_TIMEOUT_INVALID) break;
+                    cacheInsert(pi,v,curdepth+1);
+                }
+
+                sc=v*(-1);
+                //v=v*(-1);
+                //v=v*col*(-1);
+                *(int *)&pi[POS_SCORE]=sc;
+                if (sc>bsc) {
+                    bsc=sc;
+
+                    bp=pi;
+                    beststack=movstack;
+                    if (curdepth<1) wcout << movstack << " Score: " << bsc << " @ " << curdepth <<  endl;
+                }
+                if (v<bv) bv=v;
+                if (bv<b) {
+                    b=bv;
+                }
+                if (b <= a) { // alpha cut-off
+                    break;
+                }
+
+                //if (curdepth>2 && silnr>4) break;
+                //if (curdepth>3 && silnr>3) break;
+                //if (curdepth>4 && silnr>2) break;
+            }
         }
+
+        if (curdepth>0 && v==SC_TIMEOUT_INVALID) return SC_TIMEOUT_INVALID;
 
         if (pnpos!=nullptr) {
             if (bp!=nullptr) {
@@ -755,7 +835,7 @@ public:
         return bsc;
     }
 
-    int makeMove(char *pos,int col, std::map<string, int> &heuristic, char **pnpos) {
+    int makeMove(char *pos,int col, std::map<string, int> &heuristic, int *pcurnodes, char **pnpos) {
         int sc=0;
         int depth=heuristic["depth"];
         time_t maxtime, t;
@@ -770,7 +850,7 @@ public:
             int a=SC_MIN;
             int b=SC_MAX;
             wstring buf=L"";
-            sc=alphabeta(pos,a,b,col,true,depthi,0,maxtime,buf,pnpos,&ml);
+            sc=alphabeta(pos,a,b,col,true,depthi,0,pcurnodes,maxtime,buf,pnpos,&ml);
             if (sc==SC_TIMEOUT_INVALID) {
                 sc=sco;
                 break;
@@ -787,6 +867,8 @@ public:
 
 int main(int argc, char *arv[]) {
     std::setlocale (LC_ALL, "");
+    checkStatics();
+
     Chess c; // = new Chess();
     //wcout << c.stratVal(c.pos,CW) << endl;
     //wcout << c.stratVal(c.pos,CB) << endl;
@@ -794,7 +876,9 @@ int main(int argc, char *arv[]) {
     int sc=0;
     char *npos;
     int col=1;
+    int dt,nps;
     char *pos;
+    int curnodes;
     wstring buf{L""};
     wstring move,inp;
     bool val;
@@ -802,18 +886,25 @@ int main(int argc, char *arv[]) {
     std::map<string, int> heuristic;
     heuristic["depth"]=25;
     heuristic["maxtime"]=60;
+    time_t starttime,endtime;
     pos=(char *)malloc(POS_SIZE*sizeof(char));
     memcpy((void *)pos,c.pos,POS_SIZE*sizeof(char));
     bool bOk=true;
     while (bOk) {
         buf=L"";
-        sc=c.makeMove(pos, col, heuristic, &npos);
+        time(&starttime);
+        sc=c.makeMove(pos, col, heuristic, &curnodes, &npos);
+        time(&endtime);
+        dt=endtime-starttime;
+        if (dt>0) nps=curnodes/dt;
+        else nps=0;
         delete pos;
         if (npos!=nullptr) {
             pos=npos;
             c.printPos(pos,-1);
             move=c.movSc(pos);
-            wcout << move << endl;
+            wcout << move << L" Nodes: " << curnodes << ", Nodes/sec: " << nps << endl;
+            wcout << " cache-hits:"<<c.cachehit<<", cachemiss:"<<c.cachemiss<<", cacheconfl:"<<c.cacheclash<<","<<c.cacheclashr<<endl;
             col=col*(-1);
 
             ml=c.moveList(pos,col);
