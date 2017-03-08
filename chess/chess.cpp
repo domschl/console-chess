@@ -7,12 +7,13 @@
 #include <cmath>
 #include <algorithm>
 #include <map>
-/*
- * TODO that is it
- */
+
 using std::wcout; using std::endl; using std::string; using std::vector;
 using std::wstring;
 
+// ---- Minimal ANSI terminal controls---------------------------
+
+// Set color[0-7] and background-coloe[0-7]
 void cc(int col,int bk) {
     unsigned char esc=27;
     int c=col+30;
@@ -21,13 +22,16 @@ void cc(int col,int bk) {
     sprintf(s,"%c[%d;%dm",esc,c,b);
     wcout << s;
 }
-//
+
+// Clear scren
 void clr() {
     unsigned char esc=27;
     char s[256];
     sprintf(s,"%c[%dJ",esc,2);
     wcout << s;
 }
+
+// Cursor goto(line,column)
 void got(int cy, int cx) {
     unsigned char esc=27;
     char s[256];
@@ -35,6 +39,8 @@ void got(int cy, int cx) {
     wcout << s;
 }
 
+//----------------Chess------------------------------
+// Constant for a chess position
 #define POS_SIZE 150
 
 #define CW 1    // White pieces >0
@@ -68,7 +74,7 @@ void got(int cy, int cx) {
 #define POS_WK_CHK  (POS_CTRL_OFFSET+10)  // 1: white king in check
 #define POS_BK_CHK  (POS_CTRL_OFFSET+11)  // 1: black king in check
 
-#define POS_SCORE   (POS_CTRL_OFFSET+12)  // Score of position as float (uhhh)
+#define POS_SCORE   (POS_CTRL_OFFSET+12)  // Score of position as int (uhhh)
 
 #define FOF(y,x) ((y+2)*10+x+1)
 #define COL(of) (of%10-1)
@@ -76,12 +82,12 @@ void got(int cy, int cx) {
 
 #define SC_MIN (-9999999)
 #define SC_MAX ( 9999999)
+#define SC_TIMEOUT_INVALID (-3333333)
 
-//class Chess;
-//bool Chess::isThreatened(char *pos,int cy, int cx, int col);
+//sort function: sort two chess positions according to their score
 bool scoresort(char *p1, char *p2) {
-    float sc1=*(int *)&p1[POS_SCORE];
-    float sc2=*(int *)&p2[POS_SCORE];
+    int sc1=*(int *)&p1[POS_SCORE];
+    int sc2=*(int *)&p2[POS_SCORE];
     return sc1>sc2;
 }
 
@@ -490,7 +496,7 @@ public:
         }
 
         int norm=3;
-        //float anorm=4.0;
+        //int anorm=4.0;
         mov=0;
         int ac;
         for (int i=0; i<POS_SIZE; i++) {
@@ -504,7 +510,7 @@ public:
                 atc += vf*norm*sval[i];
             }
         }
-        float movnorm=4;
+        int movnorm=4;
         atc +=mov*movnorm;
 
         int znorm=3;
@@ -554,7 +560,7 @@ public:
     int evalPos(char *pos, int col) {
         int cx,cy;
         int f,fn,m;
-        float sc=0.0;
+        int sc=0;
         int figVals[]{100,290,300,500,900,10000};
         for (cy=0; cy<8; cy++) {
             for (cx=0; cx<8; cx++) {
@@ -587,7 +593,6 @@ public:
         return *(int *)&pos[POS_SCORE];
     }
 
-    int TO_INV_VAL=-3333333;
 
     int alphabeta(char *pos, int a, int b, int col, bool bMax, int depth, int curdepth, time_t maxtime, wstring &movstack, char **pnpos, vector<char *>*pmlo) {
         int bsc,sc,bv,v;
@@ -604,8 +609,8 @@ public:
 
         /*
         if (depth>6) {
-            float aopt=SC_MIN;
-            float bopt=SC_MAX;
+            int aopt=SC_MIN;
+            int bopt=SC_MAX;
             bool bmax;
             wstring bufopt=L"";
             if ((curdepth+0)%2) bmax=false;
@@ -662,7 +667,7 @@ public:
                     movstack=stack;
 
                     v=alphabeta(pi,a,b,CB,false,depth-1,curdepth+1,maxtime,movstack,nullptr,nullptr);
-                    if (v==TO_INV_VAL) break;
+                    if (v==SC_TIMEOUT_INVALID) break;
                     sc=v*(-1);
                     v=v*(-1);
                     *(int *)&pi[POS_SCORE]=sc;
@@ -700,7 +705,7 @@ public:
                     movstack=stack;
 
                     v=alphabeta(pi,a,b,CW,true,depth-1,curdepth+1,maxtime,movstack,nullptr,nullptr);
-                    if (v==TO_INV_VAL) break;
+                    if (v==SC_TIMEOUT_INVALID) break;
                     sc=v*(-1);
                     //v=v*(-1);
                     //v=v*col*(-1);
@@ -726,9 +731,9 @@ public:
                 }
             }
 
-            if (curdepth>0 && v==TO_INV_VAL) return TO_INV_VAL;
-            if (curdepth==0 && v==TO_INV_VAL) {
-                return TO_INV_VAL;
+            if (curdepth>0 && v==SC_TIMEOUT_INVALID) return SC_TIMEOUT_INVALID;
+            if (curdepth==0 && v==SC_TIMEOUT_INVALID) {
+                return SC_TIMEOUT_INVALID;
             }
         }
 
@@ -782,7 +787,7 @@ public:
             int b=SC_MAX;
             wstring buf=L"";
             sc=alphabeta(pos,a,b,col,true,depthi,0,maxtime,buf,pnpos,&ml);
-            if (sc==TO_INV_VAL) {
+            if (sc==SC_TIMEOUT_INVALID) {
                 sc=sco;
                 break;
             } else {
