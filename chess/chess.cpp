@@ -618,8 +618,8 @@ public:
                     while (val) {
                         of0 += ro[d];
                         if (pos[of0]==FIELD_BR * col) sval[of] -= 3; // atc-=vf;
-                        if (pos[of0]==FIELD_WQ * col) sval[of] += 2; // atc+=vf;
-                        if (pos[of0]==FIELD_BR * col) sval[of] -= 3; // atc-=vf;
+                        if (pos[of0]==FIELD_BQ * col) sval[of] -= 2; // atc+=vf;
+                        if (pos[of0]==FIELD_WR * col) sval[of] += 3; // atc-=vf;
                         if (pos[of0]==FIELD_WQ * col) sval[of] += 2; // atc+=vf;
                         if (pos[of0]!=FIELD_EMPTY) val=false;
                     }
@@ -937,8 +937,8 @@ int main(int argc, char *arv[]) {
     checkStatics();
 
     Chess c(30000000); //no. of cache entries
-    //wcout << c.stratVal(c.pos,CW) << endl;
-    //wcout << c.stratVal(c.pos,CB) << endl;
+    wcout << c.stratVal(c.pos,CW) << endl;
+    wcout << c.stratVal(c.pos,CB) << endl;
 
     int sc=0;
     char *npos;
@@ -952,7 +952,7 @@ int main(int argc, char *arv[]) {
     vector<char *> ml;
     std::map<string, int> heuristic;
     heuristic["depth"]=25;
-    heuristic["maxtime"]=3;
+    heuristic["maxtime"]=30;
     time_t starttime,endtime;
     pos=(char *)malloc(POS_SIZE*sizeof(char));
     memcpy((void *)pos,c.pos,POS_SIZE*sizeof(char));
