@@ -665,15 +665,16 @@ public:
         }
         ks /= kdiv;
 
-        sc=(knorm+atc)/3;
+        int scdiv=6;
+        sc=(knorm+atc)/scdiv;
 
         int cnorm=1;
-        if (pos[POS_WKC]==0) sc-=col*20*cnorm;
-        if (pos[POS_WQC]==0) sc-=col*20*cnorm;
-        if (pos[POS_BKC]==0) sc+=col*30*cnorm;
-        if (pos[POS_BQC]==0) sc+=col*20*cnorm;
-        if (pos[POS_WKC]==2) sc+=col*40*cnorm;
-        if (pos[POS_BKC]==2) sc-=col*40*cnorm;
+        if (pos[POS_WKC]==0) sc-=col*15*cnorm;
+        if (pos[POS_WQC]==0) sc-=col*10*cnorm;
+        if (pos[POS_BKC]==0) sc+=col*15*cnorm;
+        if (pos[POS_BQC]==0) sc+=col*10*cnorm;
+        if (pos[POS_WKC]==2) sc+=col*30*cnorm;
+        if (pos[POS_BKC]==2) sc-=col*30*cnorm;
         return sc;
     }
 
