@@ -41,7 +41,7 @@ void got(int cy, int cx) {
 
 //----------------Chess------------------------------
 // Constant for a chess position
-#define POS_SIZE 140 // must be multiple of four
+#define POS_SIZE 144 // must be multiple of four
 
 #define CW 1    // White pieces >0
 #define CB -1   // black pieces <0
@@ -73,12 +73,13 @@ void got(int cy, int cx) {
 #define POS_BK      (POS_CTRL_OFFSET+9)   // cache for black king pos
 #define POS_WK_CHK  (POS_CTRL_OFFSET+10)  // 1: white king in check
 #define POS_BK_CHK  (POS_CTRL_OFFSET+11)  // 1: black king in check
+#define POS_NEXTCOL (POS_CTRL_OFFSET+12)  // 1: white to move, -1 black to move.
 
-#define POS_SCORE   (POS_CTRL_OFFSET+12)  // Score of position as int (uhhh)
-#define POS_CURDEP  (POS_CTRL_OFFSET+16)  // Cache stores current depth
+#define POS_SCORE   (POS_CTRL_OFFSET+16)  // Score of position as int (uhhh)
+#define POS_CURDEP  (POS_CTRL_OFFSET+20)  // Cache stores current depth
 
 void checkStatics() {
-    if (POS_CTRL_OFFSET+16+sizeof(int)!=POS_SIZE) {
+    if (POS_CTRL_OFFSET+20+sizeof(int)!=POS_SIZE) {
         wcout << L"Internal error with POS_SIZE!" << endl;
         exit(-1);
     }
@@ -247,6 +248,7 @@ public:
         pos[POS_LASTMV1]=0; // last move (for ep)
         pos[POS_WK]=FOF(7,4); // cache of white king pos
         pos[POS_BK]=FOF(0,4); // bl king
+        pos[POS_NEXTCOL]=CW; // White to move
     }
 
     void move2String(char *pos, wstring& strmov) {
@@ -345,6 +347,7 @@ public:
         posn[of]=FIELD_EMPTY;
         posn[POS_LASTMV0]=of;
         posn[POS_LASTMV1]=ofn;
+        posn[POS_NEXTCOL]=pos[POS_NEXTCOL]*(-1);
         if (f!=0) posn[ofn]=f;
         int f0=posn[ofn];
         int bk, wk;
@@ -403,7 +406,7 @@ public:
     }
 
 
-    vector<char *> moveList(char *pos, int col=CW) {
+    vector<char *> moveList(char *pos, int col) {
         int no[]{21,-21,19,-19,8,12,-8,-12};
         int bo[]{11,-11,9,-9};
         int ro[]{10,-10,1,-1};
@@ -944,6 +947,7 @@ int main(int argc, char *arv[]) {
         buf=L"";
         time(&starttime);
         c.cachehit=0; c.cachemiss=0; c.cacheclash=0; c.cacheclashr=0;
+        curnodes=0;
         sc=c.makeMove(pos, col, heuristic, &curnodes, &npos);
         time(&endtime);
         dt=endtime-starttime;
