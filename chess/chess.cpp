@@ -154,40 +154,41 @@ class Chess {
 public:
     char pos[POS_SIZE];
 
-    int cachepos=0;
+    int cachesize=10000000;
+    int cacheptr=0;
+
     int cacheclash=0;
     int cacheclashr=0;
     int cachehit=0;
     int cachemiss=0;
 
     std::map<int, int[2]> cache{};
-    vector <char *>cachepositions;
+    vector <char *>cachepositions{};
 
     unsigned int cacheHash(char *pos) {
         unsigned int h=crc32((const unsigned char *)pos,POS_SIZE);
         return h;
     }
 
-    void cacheInsert(char *pos, int score, int curdepth) {
-        *(int *)&pos[POS_CURDEP]=curdepth;
+    void cacheInsert(const char *pos, int score, int curdepth) {
         char *p;
-        p=(char *)malloc(POS_SIZE*sizeof(char));
+        p=cachepositions[cacheptr];
         memcpy(p,pos,POS_SIZE*sizeof(char));
+        *(int *)&p[POS_CURDEP]=curdepth;
         p[POS_LASTMV0]=0;
         p[POS_LASTMV1]=0;
         unsigned int h=cacheHash(p);
         if (cache.find(h)==cache.end()) {
-            cachepositions.push_back(p);
             cache[h][0]=score;
-            cache[h][1]=cachepos;
-            ++cachepos;
+            cache[h][1]=cacheptr;
+            cacheptr = (cacheptr+1)%cachesize;
         } else {
+            memset(p,sizeof(char)*POS_SIZE,0);
             ++cacheclash;
-            delete p;
         }
     }
 
-    bool cacheRead(char *pos, int *pscore, int curdepth) {
+    bool cacheRead(const char *pos, int *pscore, int curdepth) {
         char pc[POS_SIZE];
         memcpy(pc,pos,POS_SIZE*sizeof(char));
         pc[POS_LASTMV0]=0;
@@ -249,6 +250,11 @@ public:
         pos[POS_WK]=FOF(7,4); // cache of white king pos
         pos[POS_BK]=FOF(0,4); // bl king
         pos[POS_NEXTCOL]=CW; // White to move
+        //Cache init
+        for (int i=0; i<cachesize; i++) {
+            cachepositions.push_back((char *)malloc(POS_SIZE*sizeof(char)));
+        }
+        wcout << L"cache-size:" << cachepositions.size() << endl;
     }
 
     void move2String(char *pos, wstring& strmov) {
@@ -668,7 +674,7 @@ public:
         }
         ks /= kdiv;
 
-        int scdiv=6;
+        int scdiv=8;
         sc=(knorm+atc)/scdiv;
 
         int cnorm=1;
@@ -727,7 +733,10 @@ public:
         vector<char *> ml{};
         wstring stack,stack0,beststack,ms;
         stack0=movstack;
-        if (depth<=0 && pos[POS_CAPT]==FIELD_EMPTY)
+        bool notCheck=true;
+        if (col==CW && pos[POS_WK_CHK]) notCheck=false;
+        if (col==CB && pos[POS_BK_CHK]) notCheck=false;
+        if (depth<=0 && pos[POS_CAPT]==FIELD_EMPTY && notCheck)
             return posScore(pos)*(-1);
 
         if (pmlo!=nullptr) {
