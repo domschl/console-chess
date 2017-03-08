@@ -415,6 +415,7 @@ public:
         }
         //wcout << ROW(of) << COL(of) << " " << ROW(ofn) << COL(ofn) << " " << val << endl;
         if (val) ml.push_back(posn);
+        else free(posn);
     }
 
 
