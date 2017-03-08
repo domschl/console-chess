@@ -598,7 +598,7 @@ public:
         int bsc,sc,bv,v;
         char *bp=nullptr;
         int nr,silnr;
-        bool bSortShow=true;
+        bool bSortShow=false;
         bool bSortShowO=false;
         vector<char *> ml{};
         wstring stack,stack0,beststack,ms;
@@ -606,23 +606,10 @@ public:
         if (depth<=0 && pos[POS_CAPT]==FIELD_EMPTY)
             return posScore(pos)*(-1);
 
-
-        /*
-        if (depth>6) {
-            int aopt=SC_MIN;
-            int bopt=SC_MAX;
-            bool bmax;
-            wstring bufopt=L"";
-            if ((curdepth+0)%2) bmax=false;
-            else bmax=true;
-            alphabeta(pos,aopt,bopt,col,bmax,4,0,maxtime,bufopt,nullptr,&ml);
-        } else {
-            ml=moveList(pos,col);
-        } */
         if (pmlo!=nullptr) {
-            ml=*pmlo;
+            ml=*pmlo; // A pre-sorted move-list is already given
         } else {
-            ml=moveList(pos,col);
+            ml=moveList(pos,col); // generate new move-list
         }
 
         if (ml.size()==0) {
@@ -732,9 +719,6 @@ public:
             }
 
             if (curdepth>0 && v==SC_TIMEOUT_INVALID) return SC_TIMEOUT_INVALID;
-            if (curdepth==0 && v==SC_TIMEOUT_INVALID) {
-                return SC_TIMEOUT_INVALID;
-            }
         }
 
         if (pnpos!=nullptr) {
