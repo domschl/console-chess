@@ -23,7 +23,7 @@ void cc(int col,int bk) {
     wcout << s;
 }
 
-// Clear scren
+// Clear screen
 void clr() {
     unsigned char esc=27;
     char s[256];
@@ -578,7 +578,7 @@ public:
         int cx,cy;
         int sc=0;
         int sval[POS_SIZE];
-        char figAttack[]{4,20,4,3,3,1,2,2,2,2,1,0,0};
+        char figAttack[]{2,5,4,3,3,0,0,1,1,1,1,0,0};
         int no[]{21,-21,19,-19,8,12,-8,-12};
         int bo[]{11,-11,9,-9};
         int ro[]{10,-10,1,-1};
@@ -632,7 +632,7 @@ public:
         }
 
         int norm=3;
-        //int anorm=4.0;
+        int normdiv=4;
         mov=0;
         int ac;
         for (int i=0; i<POS_SIZE; i++) {
@@ -640,16 +640,56 @@ public:
             if (sval[i]) {
                 //atc+=sval[i]*anorm*col
                 if (sval[i]<0) ac=-1; else ac=1;
-                vf=figAttack[pos[i]*ac+6];
+                vf=figAttack[pos[i]*col*ac+6];
                 //if (sval[i]<0) atc -= vf*norm;
                 //else atc += vf*norm;
-                atc += vf*norm*sval[i];
+                atc += vf*norm*sval[i]/normdiv;
             }
         }
-        int movnorm=4;
+        int movnorm=2;
         atc +=mov*movnorm;
 
-        int znorm=3;
+        int spcnorm=4;
+        int spn=0;
+        int csp;
+        int lsp;
+        int s0pr=4;
+        int s1div=3;
+        for (cx=0; cx<8; cx++) {
+            lsp=0;
+            for (cy=7; cy>=0; cy--) {
+                csp=pos[FOF(cy,cx)]*col;
+                if (csp<0) break;
+                if (csp>0) lsp=7-cy;
+            }
+            spn+=s0pr*lsp;
+            lsp=0;
+            for (cy=0; cy<8; cy++) {
+                csp=pos[FOF(cy,cx)]*col;
+                if (csp>0) break;
+                if (csp<0) lsp=cy;
+            }
+            spn-=s0pr*lsp;
+        }
+        for (cx=0; cx<8; cx++) {
+            lsp=0;
+            for (cy=7; cy>=0; cy--) {
+                csp=sval[FOF(cy,cx)]*col;
+                if (csp<0) break;
+                if (csp>0) lsp=7-cy;
+            }
+            spn+=lsp/s1div;
+            lsp=0;
+            for (cy=0; cy<8; cy++) {
+                csp=sval[FOF(cy,cx)]*col;
+                if (csp>0) break;
+                if (csp<0) lsp=cy;
+            }
+            spn-=lsp/s1div;
+        }
+        atc+=spcnorm*spn;
+
+        int znorm=4;
         atc +=(sval[FOF(3,3)] + sval[FOF(3,4)] + sval[FOF(4,3)] + sval[FOF(4,4)]) * znorm;
         atc +=(sval[FOF(3,2)] + sval[FOF(3,5)] + sval[FOF(4,2)] + sval[FOF(4,5)]) * znorm;
 
@@ -657,31 +697,33 @@ public:
         ofy=ROW(pos[POS_WK]);
         ofx=COL(pos[POS_WK]);
         int ks=0;
+        int knorm=1;
+        int kdiv=1;
         for (cy=-2; cy<3; cy++) {
             for (cy=-2; cy<3; cy++) {
                 if (std::abs(cx)>std::abs(cy)) d=std::abs(cx);
                 else d=std::abs(cy);
                 d=3-d;
-                ks += (sval[FOF(ofy+cy,ofx+cx)]*d);
+                if (d>0)
+                    ks += (sval[FOF(ofy+cy,ofx+cx)]*d)*knorm;
             }
         }
 
         ofy=ROW(pos[POS_BK]);
         ofx=COL(pos[POS_BK]);
         //ks=0.0;
-        int knorm=1;
-        int kdiv=3;
         for (cy=-2; cy<3; cy++) {
             for (cy=-2; cy<3; cy++) {
                 if (std::abs(cx)>std::abs(cy)) d=std::abs(cx);
                 else d=std::abs(cy);
                 d=3-d;
-                ks += (sval[FOF(ofy+cy,ofx+cx)]*d)*knorm;
+                if (d>0)
+                    ks += (sval[FOF(ofy+cy,ofx+cx)]*d)*knorm;
             }
         }
         ks /= kdiv;
 
-        int scdiv=8;
+        int scdiv=4;
         sc=(knorm+atc)/scdiv;
 
         int cnorm=1;
@@ -909,7 +951,7 @@ public:
         vector<char *>ml;
         int depthi;
         ml=moveList(pos,col);
-        for (depthi=4; depthi<=depth; depthi+=1) {
+        for (depthi=4; depthi<=depth; depthi++) {
             wcout << L"[L:" << depthi << L"] ";
             int a=SC_MIN;
             int b=SC_MAX;
@@ -923,6 +965,9 @@ public:
             }
             time(&t);
             if (t>=maxtime) break;
+            //for (auto pi : ml) {
+            //    *(int *)&pi[POS_SCORE] = *(int *)&pi[POS_SCORE] * (-1);
+            //}
         }
         for (auto pi : ml) {
             free(pi);
@@ -937,8 +982,8 @@ int main(int argc, char *arv[]) {
     checkStatics();
 
     Chess c(30000000); //no. of cache entries
-    wcout << c.stratVal(c.pos,CW) << endl;
-    wcout << c.stratVal(c.pos,CB) << endl;
+    //wcout << c.stratVal(c.pos,CW) << endl;
+    //wcout << c.stratVal(c.pos,CB) << endl;
 
     int sc=0;
     char *npos;
