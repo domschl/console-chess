@@ -19,7 +19,7 @@ project(chess)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-set(gcc_like_compilers GNU Clang  Intel)
+set(gcc_like_compilers GNU Clang AppleClang Intel)
 set(intel_archs x86_64 i386 i686)
 
 # Setup some options to allow a user to enable SSE and AVX instruction use.
