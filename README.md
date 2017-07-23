@@ -5,6 +5,8 @@ Simplistic chess implementation using only Unicode chess font graphics for testi
 None. Console font needs to support Unicode characters for chess.
 
 # Build
+Travis CI status: [![Build Status](https://travis-ci.org/domschl/console-chess.svg?branch=master)](https://travis-ci.org/domschl/console-chess)
+
 `console-chess` uses the `cmake` build system:
 ```bash
 mkdir Build
