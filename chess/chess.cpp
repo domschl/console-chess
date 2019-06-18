@@ -200,7 +200,7 @@ class Chess {
             cache[h][1] = cacheptr;
             cacheptr = (cacheptr + 1) % cachesize;
         } else {
-            memset(p, sizeof(char) * POS_SIZE, 0);
+            memset(p, 0, sizeof(char) * POS_SIZE);
             ++cacheclash;
         }
     }
