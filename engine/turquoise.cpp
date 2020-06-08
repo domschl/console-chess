@@ -64,20 +64,20 @@ class Term {
     }
 };
 
-typedef struct t_board {
+struct Board {
     unsigned char field[120];
     unsigned char castleRights;
     unsigned char fiftyMoves;
     unsigned char epPos;
-    unsigned char activeColor;
+    Color activeColor;
     unsigned int moveNumber;
 
-    t_board() {
+    Board() {
         startPosition();
     }
 
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-    t_board(string fen, bool verbose=false) {
+    Board(string fen, bool verbose=false) {
         memset(field,0,120);
         activeColor=Color::White;
         epPos=0;
@@ -186,7 +186,7 @@ typedef struct t_board {
         return f;
     }
 
-    unsigned char asc2piece(char c) {
+    static unsigned char asc2piece(char c) {
         const string wp="PNBRQK";
         const string bp="pnbrqk";
         unsigned char pc=0;
@@ -202,7 +202,7 @@ typedef struct t_board {
         return pc;
     }
 
-    PieceType asc2piecetype(char c) {
+    static PieceType asc2piecetype(char c) {
         const string bp="pnbrqk";
         PieceType pt=PieceType::Empty;
         int ind=bp.find(std::tolower(c));
@@ -212,7 +212,7 @@ typedef struct t_board {
         return pt;
     }
 
-    char piece2asc(unsigned char pc) {
+    static char piece2asc(unsigned char pc) {
         const char *wp="PNBRQK";
         const char *bp="pnbrqk";
         if (pc & Color::White) {
@@ -248,26 +248,26 @@ typedef struct t_board {
         }
     }
 
-    inline unsigned char toPos(unsigned char y, unsigned char x) {
+    static inline unsigned char toPos(unsigned char y, unsigned char x) {
         return ((y + 2) * 10 + x + 1);
     }
-    inline unsigned char toPos(string posStr) {
+    static inline unsigned char toPos(string posStr) {
         return ((posStr[1]-'1'+2)*10+std::tolower(posStr[0])-'a'+1);
     }
 
-    void pos2coord(unsigned char pos, int *y, int *x) {
+    static void pos2coord(unsigned char pos, int *y, int *x) {
         if (y) *y=pos/10-2;
         if (x) *x=(pos%10)-1;
     }
 
-    string pos2string(unsigned char pos) {
+    static string pos2string(unsigned char pos) {
         char c1=pos/10-2+'1';
         char c2=(pos%10)-1+'a';
         string coord=string(1,c2)+string(1,c1);
         return coord;
     }
 
-    void printPos(struct t_board *brd, int py = 0, int px = 0) {
+    void printPos(Board *brd, int py = 0, int px = 0) {
         wchar_t *cPw = (wchar_t *)L"♟♞♝♜♛♚";
         wchar_t *cPb = (wchar_t *)L"♙♘♗♖♕♔";
         int cy, cx, fo, cl, cf;
@@ -327,7 +327,203 @@ typedef struct t_board {
         wcout << L"Fifty-move-state: " << std::to_wstring((int)moveNumber) << endl;
     }
 
-} Board;
+    struct Move {
+        unsigned char from;
+        unsigned char to;
+        PieceType promote;
+
+        Move() {
+            from=0;
+            to=0;
+            promote=Empty;
+        }
+        Move(unsigned char from, unsigned char to, PieceType promote=Empty): from(from), to(to), promote(promote) {
+        }
+        // Decode uci and algebraic-notation strings to move [TODO: incomplete]
+        Move(string alg, Board *brd=nullptr) {
+            promote=Empty;
+            from=0;
+            to=0;
+            if (alg.length()>=5 && alg[2]=='-') { // UCI Format
+                from=Board::toPos(alg.substr(0,2));
+                to=Board::toPos(alg.substr(3,2));
+                if (alg.length()>=6 && alg[5]!='+' && alg[5]!='#') {
+                    promote=Board::asc2piecetype(alg[5]);
+                }
+            } else { // Algebraic notation, needs board
+                if (brd==nullptr) return;
+                string al=alg;
+                if (alg=="O-O") {
+                    if (brd->activeColor==Color::White) {
+                        from=Board::toPos("e1");
+                        to=Board::toPos("g1");
+                    } else if (brd->activeColor==Color::Black) {
+                        from=Board::toPos("e8");
+                        to=Board::toPos("g8");
+                    }
+                } else if (alg=="O-O-O") {
+                    if (brd->activeColor==Color::White) {
+                        from=Board::toPos("e1");
+                        to=Board::toPos("c1");
+                    } else if (brd->activeColor==Color::Black) {
+                        from=Board::toPos("e8");
+                        to=Board::toPos("c8");
+                    }
+                } else {
+                    if (al.length()<2) return;
+                    const string pt="NBRQK";
+                    PieceType p;
+                    if (pt.find(al[0])!=std::string::npos) {
+                        p=Board::asc2piecetype(al[0]);
+                        al=al.substr(1);                        
+                    } else {
+                        p=PieceType::Pawn;
+                    }
+                    if (al.length()<2) return;
+                    if (al[0]=='x') {
+                        al=al.substr(1);                        
+                    }
+                    if (al.length()<2) return;
+                    int fx=-1, fy=-1, tx=-1, ty=-1;
+                    if (al[1]>='a' && al[1]<='h') {
+                        tx=al[1]-'a';
+                        fx=al[0]-'a';
+                        al=al.substr(2);
+                    } else {
+                        tx=al[0]-'a';
+                        al=al.substr(1);
+                    }
+                    if (al.length()<1) return;
+                    if (al.length()>=2) {
+                        if (al[1]>='1' && al[1]<='8') {
+                            ty=al[1]-'1';
+                            fy=al[1]-'1';
+                            al=al.substr(2);
+                        } else {
+                            ty=al[0]-'1';
+                            al=al.substr(1);
+                        }
+                    }
+                    if (al.length()>=2) {
+                        if (al[0]=='=') {
+                            promote=Board::asc2piecetype(al[1]);
+                        }
+                    }
+                    // TODO: algebraic decoding missing.
+                }
+            }
+        }
+    };
+
+    bool attacked(unsigned char pos, Color col) {
+        // TODO: optimize by copying code and directly returning bool
+        vector<unsigned char> pl=attackers(pos, col);
+        if (pl.size()>0) return true;
+        else return false;
+    }
+
+    vector<unsigned char> attackers(unsigned char pos, Color col) {
+        vector<unsigned char> pl;
+        Color attColor;
+        int x,y;
+        // pos2coord(pos,&y,&x);
+        if (col==Color::White) attColor=Black;
+        else attColor=White;
+
+        if (activeColor==White) {
+            if (field[pos+11]==Piece::bp) {
+                pl.push_back(pos+11);
+            }
+            if (field[pos+9]==Piece::bp) {
+                pl.push_back(pos+9);
+            }
+        } else if (activeColor==Black) {
+            if (field[pos-11]==Piece::wp) {
+                pl.push_back(pos-11);
+            }
+            if (field[pos-9]==Piece::wp) {
+                pl.push_back(pos-9);
+            }
+        }
+        char knightMoves[]{21, -21, 19, -19, 8, 12, -8, -12};
+        char bishopMoves[]{11, -11, 9, -9};
+        char rookMoves[]{10, -10, 1, -1};
+        char kingQueenMoves[]{11, -11, 9, -9, 10, -10, 1, -1};
+        for (char kn : knightMoves) {
+            if (field[pos+kn]==PieceType::Knight | attColor) pl.push_back(pos+kn);
+        }
+        for (char km : kingQueenMoves) {
+            if (field[pos+km]==PieceType::King | attColor) pl.push_back(pos+km);
+        }
+        for (char bm : bishopMoves) {
+            unsigned char pn=pos+bm;
+            while (true) {
+                if ((field[pn]==PieceType::Bishop | attColor) || (field[pn]==PieceType::Queen | attColor)) {
+                    pl.push_back(pn);
+                    break;
+                }
+                if (field[pn]!=0) break;
+                pn=pn+bm;
+            }
+        }
+        for (char bm : rookMoves) {
+            unsigned char pn=pos+bm;
+            while (true) {
+                if ((field[pn]==PieceType::Rook | attColor) || (field[pn]==PieceType::Queen | attColor)) {
+                    pl.push_back(pn);
+                    break;
+                }
+                if (field[pn]!=0) break;
+                pn=pn+bm;
+            }
+        }
+        return pl;
+    }
+
+    vector<unsigned char> attackedBy(unsigned char pos, Color col, PieceType p) {
+        vector<unsigned char> ml;
+        vector<unsigned char> pl=attackers(pos, col);
+        for (unsigned char pi : pl) {
+            if (field[pi]>>2 == p>>2) ml.push_back(pi);
+        }
+        return ml;
+    }
+
+    unsigned char kingsPos(Color col) {
+        for (unsigned char c=21; c<99; c++) {
+            if (field[c]==PieceType::King | col) return c;
+        }
+        return 0;
+    }
+
+    bool inCheck(Color col) {
+        return attacked(kingsPos(col),col);
+    }
+
+    vector<Move> rawMoveList() {
+        vector<Move> ml;
+
+        return ml;
+    }
+
+    Board apply(Move mv) {
+        Board brd=*this;
+        // XXX
+        return brd;
+    }
+
+    vector<Move> moveList() {
+        vector<Move> ml=rawMoveList();
+        vector<Move> vml;
+        for (auto m : ml) {
+            Board brd=apply(m);
+            if (!brd.inCheck(activeColor)) {
+                vml.push_back(m);
+            }
+        }
+    }
+
+};
 
 int main(int argc, char *argv[]) {
 #ifndef __APPLE__
