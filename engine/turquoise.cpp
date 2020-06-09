@@ -5,6 +5,7 @@
 #include <codecvt>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 using std::endl;
 using std::string;
@@ -350,11 +351,13 @@ struct Board {
         unsigned char from;
         unsigned char to;
         PieceType promote;
+        int eval;
 
         Move() {
             from=0;
             to=0;
             promote=Empty;
+            eval=0xfffffff;
         }
         Move(unsigned char from, unsigned char to, PieceType promote=Empty): from(from), to(to), promote(promote) {
         }
@@ -363,6 +366,7 @@ struct Board {
             promote=Empty;
             from=0;
             to=0;
+            eval=0xfffffff;
             if (alg.length()>=5 && alg[2]=='-') { // UCI Format
                 from=Board::toPos(alg.substr(0,2));
                 to=Board::toPos(alg.substr(3,2));
@@ -436,6 +440,16 @@ struct Board {
             string uci=Board::pos2string(from)+"-"+pos2string(to);
             if (promote!=Empty) {
                 uci+=string(1,piece2asc(promote));
+            }
+            return uci;
+        }
+        string toUciWithEval() {
+            string uci=Board::pos2string(from)+"-"+pos2string(to);
+            if (promote!=Empty) {
+                uci+=string(1,piece2asc(promote));
+            }
+            if (eval!=0xfffffff) {
+                uci+=" ("+std::to_string(eval)+")";
             }
             return uci;
         }
@@ -861,7 +875,11 @@ struct Board {
         return brd;
     }
 
-    vector<Move> moveList() {
+    static bool move_sorter(Move const& m1, Move const& m2) {
+        return m1.eval > m2.eval;
+    }
+
+    vector<Move> moveList(bool eval=false) {
         vector<Move> ml=rawMoveList();
         vector<Move> vml;
         for (auto m : ml) {
@@ -872,14 +890,22 @@ struct Board {
             // brd.printPos(&brd,-1);
             if (!nbrd.inCheck(activeColor)) {
                 //wcout << L"validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
+                if (eval) {
+                    m.eval=nbrd.eval();
+                }
                 vml.push_back(m);
             }/* else {
                 string uci=m.toUci();
                 wcout << L"not validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
             }*/
+
+        }
+        if (eval) {
+            std::sort(vml.begin(), vml.end(), &Board::move_sorter);
         }
         return vml;
     }
+
 
     unsigned long int calcPerft(Board brd, int depth, int curDepth=0, vector<Move> moveHistory={}) {
         vector<Move> ml=brd.moveList();
@@ -909,6 +935,55 @@ struct Board {
             }
             return cnt;
         }
+    }
+
+    int eval() {
+        Board brd=*this;
+        int val=0,attval,attvalx,mlval,pieceval;
+        int v1,v2;
+        int fi;
+        Color attColor;
+        vector<unsigned char> atl,atlx;
+        vector<Move> ml;
+        unsigned char f;
+
+        printPos(&brd, -1);
+
+        int pieceVals[]={0,100,290,300,500,900,100000};
+        int attVals[]={0,5,10,10,15,20,30};
+        int attValsO[]={0,20,10,10,5,2,0};
+        if (activeColor==White) attColor=Black;
+        else attColor=White;
+        attval=0;
+        attvalx=0;
+        pieceval=0;
+        for (int c=21; c<99; c++) {
+            f=field[c];
+            if (f==0xff) continue;
+            if (f==0) continue;
+            fi=field[c]>>2;
+            v1=pieceVals[fi];
+            if (f & activeColor) pieceval+=v1;
+            else pieceval-=v1;
+            if (f & attColor) {
+                v1= (-1)*attackers(c, attColor).size() * attVals[fi];
+                v2=attackers(c, activeColor).size() * attValsO[fi];
+            } else {
+                v1=attackers(c, attColor).size() * attVals[fi];
+                v2= (-1)*attackers(c, attColor).size() * attValsO[fi];
+            }
+            attval += v1;
+            attvalx -= v2;
+        }
+        attval /= 10;
+        attvalx /= 10;
+        if (brd.activeColor==White) brd.activeColor=Black;
+        else brd.activeColor=White;
+        ml=brd.rawMoveList();
+        mlval=ml.size();
+        val = attval + attvalx + pieceval + mlval;
+        wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", attval-x: " << to_wstring(attvalx) << ", mlval: " << to_wstring(mlval) << endl;
+        return val;
     }
 
 };
@@ -960,9 +1035,9 @@ void printMoves(string fen) {
     Board brd(fen);
     brd.printPos(&brd);
     brd.printInfo();
-    vector<Board::Move> ml=brd.moveList();
+    vector<Board::Move> ml=brd.moveList(true);
     for (Board::Move mv : ml) {
-        string uci=mv.toUci();
+        string uci=mv.toUciWithEval();
         wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << L" ";
     }
     wcout << endl;
@@ -985,9 +1060,11 @@ int main(int argc, char *argv[]) {
     wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(start_fen) << endl;
     wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(fen2) << endl;
     */
+    
+    string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    printMoves(start_fen);
+   
     /*
-    printMoves("r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1");
-   */
     int err=0;
     int ok=0;
     long knps=0;
@@ -1022,6 +1099,6 @@ int main(int argc, char *argv[]) {
         wcout << endl;
     }
     wcout << L"OK: " << to_wstring(ok) << L" Error: " << to_wstring(err) << endl;
-    
+    */
     return 0;
 }
