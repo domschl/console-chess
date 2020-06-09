@@ -1060,11 +1060,11 @@ int main(int argc, char *argv[]) {
     wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(start_fen) << endl;
     wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(fen2) << endl;
     */
-    
+    /*   
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     printMoves(start_fen);
-   
-    /*
+    */
+    
     int err=0;
     int ok=0;
     long knps=0;
@@ -1078,9 +1078,11 @@ int main(int argc, char *argv[]) {
         brd.printInfo();
         wcout << L"Depth: " << std::flush;
         int max=7;
+        unsigned long maxNodes=1000000000;
         int maxd=max;
         if (perftSample.perftcnt.size() < max) maxd=perftSample.perftcnt.size();
         for (int i=0; i<maxd; i++) {
+            if (perftSample.perftcnt[i]>maxNodes) break;
             wcout << to_wstring(i+1) << L" " << std::flush; 
             start=clock();
             unsigned long pc=brd.calcPerft(brd,i+1,0);
@@ -1099,6 +1101,6 @@ int main(int argc, char *argv[]) {
         wcout << endl;
     }
     wcout << L"OK: " << to_wstring(ok) << L" Error: " << to_wstring(err) << endl;
-    */
+    
     return 0;
 }
