@@ -248,6 +248,15 @@ struct Board {
         }
     }
 
+    void emptyBoard() {
+        memset(field,0,120);
+        castleRights=0;
+        activeColor=None;
+        epPos=0;
+        fiftyMoves=0;
+        moveNumber=0;
+    }
+
     static inline unsigned char toPos(unsigned char y, unsigned char x) {
         return ((y + 2) * 10 + x + 1);
     }
@@ -669,9 +678,114 @@ struct Board {
         return ml;
     }
 
-    Board apply(Move mv) {
+    Board rawApply(Move mv, bool sanityChecks=false) {
         Board brd=*this;
-        // XXX
+        const unsigned char c_a1=toPos("a1");
+        const unsigned char c_b1=toPos("b1");
+        const unsigned char c_c1=toPos("c1");
+        const unsigned char c_d1=toPos("d1");
+        const unsigned char c_e1=toPos("e1");
+        const unsigned char c_f1=toPos("f1");
+        const unsigned char c_g1=toPos("g1");
+        const unsigned char c_h1=toPos("h1");
+        const unsigned char c_a8=toPos("a8");
+        const unsigned char c_b8=toPos("b8");
+        const unsigned char c_c8=toPos("c8");
+        const unsigned char c_d8=toPos("d8");
+        const unsigned char c_e8=toPos("e8");
+        const unsigned char c_f8=toPos("f8");
+        const unsigned char c_g8=toPos("g8");
+        const unsigned char c_h8=toPos("h8");
+        if (sanityChecks) {
+            if (!(field[mv.from] & activeColor)) {
+                wcout << L"can't apply move: from-field is not occupied by piece of active color" << endl;
+                emptyBoard();
+                return *this;
+            }
+            if (field[mv.to] & activeColor) {
+                wcout << L"can't apply move: to-field is occupied by piece of active color" << endl;
+                emptyBoard();
+                return *this;
+            }
+            unsigned char pf=brd.field[mv.from];
+            unsigned char pt=brd.field[mv.to];
+            if (pt!=Empty) brd.fiftyMoves=0;
+            else brd.fiftyMoves+=1;
+            switch (pf & 0b00011100) {
+                case King:
+                    brd.epPos=0;
+                    brd.field[mv.from]=0;
+                    brd.field[mv.to]=pf;
+                    if (pf & White) {
+                        brd.castleRights &= (CastleRights::BK | CastleRights::BQ);
+                        if (mv.from==c_e1 && mv.to==c_g1) {
+                            brd.field[c_f1]=brd.field[c_h1];
+                            brd.field[c_h1]=0;
+                        }
+                        if (mv.from==c_e1 && mv.to==c_c1) {
+                            brd.field[c_d1]=brd.field[c_a1];
+                            brd.field[c_a1]=0;
+                        }
+                    } else {
+                        brd.castleRights &= (CastleRights::WK | CastleRights::WQ);
+                        if (mv.from==c_e8 && mv.to==c_g8) {
+                            brd.field[c_f8]=brd.field[c_h8];
+                            brd.field[c_h8]=0;
+                        }
+                        if (mv.from==c_e8 && mv.to==c_c8) {
+                            brd.field[c_d8]=brd.field[c_a8];
+                            brd.field[c_a8]=0;
+                        }
+                    }
+                    break;
+                case Pawn:
+                    int x,y,xt,yt;
+                    brd.field[mv.from]=0;
+                    brd.field[mv.to]=pf;
+                    pos2coord(mv.from,&y,&x);
+                    pos2coord(mv.to,&yt,&xt);
+                    if (x != xt) {
+                        if (mv.to==brd.epPos) {
+                            brd.field[toPos(y,xt)]=0;
+                        }
+                        brd.epPos=0;
+                    } else {
+                        brd.epPos=0;
+                        if (y==1 && yt==3) {
+                            brd.epPos=toPos(2,x);
+                        }
+                        if (y==6 && yt==4) {
+                            brd.epPos=toPos(5,x);
+                        }
+                    }
+                    if (y==7 || y==0) {
+                        brd.field[mv.to]=mv.promote | activeColor;
+                    }
+                    brd.fiftyMoves=0;
+                    break;
+                case Rook:
+                    brd.epPos=0;
+                    brd.field[mv.from]=0;
+                    brd.field[mv.to]=pf;
+                    if (pf & White) {
+                        if (mv.from==c_h1) brd.castleRights &= !CastleRights::WK;
+                        if (mv.from==c_a1) brd.castleRights &= !CastleRights::WQ;
+                    } else {
+                        if (mv.from==c_h8) brd.castleRights &= !CastleRights::BK;
+                        if (mv.from==c_a8) brd.castleRights &= !CastleRights::BQ;
+                    }
+                case Knight:
+                case Bishop:
+                case Queen:
+                    brd.epPos=0;
+                    brd.field[mv.from]=0;
+                    brd.field[mv.to]=pf;
+                default:
+                    wcout << L"Unidentified flying object!" << endl;
+                    emptyBoard();
+                    return *this;
+            }
+        }
         return brd;
     }
 
@@ -679,12 +793,26 @@ struct Board {
         vector<Move> ml=rawMoveList();
         vector<Move> vml;
         for (auto m : ml) {
-            Board brd=apply(m);
+            Board brd=rawApply(m);
             if (!brd.inCheck(activeColor)) {
                 vml.push_back(m);
             }
         }
         return vml;
+    }
+
+    unsigned int calcPerft(Board brd, int depth, int curDepth=0, vector<Move> moveHistory={}) {
+        vector<Move> ml=brd.moveList();
+        int cnt=0;
+        if (depth==curDepth+1) return ml.size();
+        else {
+            for (Move mv : ml) {
+                Board new_brd=brd.rawApply(mv);
+                moveHistory.push_back(mv);
+                cnt+=calcPerft(new_brd, depth, curDepth+1, moveHistory);
+            }
+            return cnt;
+        }
     }
 
 };
