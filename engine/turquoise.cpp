@@ -425,8 +425,6 @@ struct Board {
     vector<unsigned char> attackers(unsigned char pos, Color col) {
         vector<unsigned char> pl;
         Color attColor;
-        int x,y;
-        // pos2coord(pos,&y,&x);
         if (col==Color::White) attColor=Black;
         else attColor=White;
 
@@ -502,7 +500,172 @@ struct Board {
 
     vector<Move> rawMoveList() {
         vector<Move> ml;
-
+        int x,y,xt,yt;
+        int dy,promoteRank,startPawn;
+        const PieceType pp[]={Knight, Bishop, Rook, Queen};
+        const char pawnCapW[]={9,11};
+        const char pawnCapB[]={-9,-11};
+        const char *pawnCap;
+        const unsigned char c_a1=toPos("a1");
+        const unsigned char c_b1=toPos("b1");
+        const unsigned char c_c1=toPos("c1");
+        const unsigned char c_d1=toPos("d1");
+        const unsigned char c_e1=toPos("e1");
+        const unsigned char c_f1=toPos("f1");
+        const unsigned char c_g1=toPos("g1");
+        const unsigned char c_h1=toPos("h1");
+        const unsigned char c_a8=toPos("a8");
+        const unsigned char c_b8=toPos("b8");
+        const unsigned char c_c8=toPos("c8");
+        const unsigned char c_d8=toPos("d8");
+        const unsigned char c_e8=toPos("e8");
+        const unsigned char c_f8=toPos("f8");
+        const unsigned char c_g8=toPos("g8");
+        const unsigned char c_h8=toPos("h8");
+        const char kingQueenMoves[]={-1,-11,-10,-9,1,11,10,9};
+        const char knightMoves[]={8,12,21,19,-8,-12,-21,-19};
+        const char bishopMoves[]={-9,-11,9,11};
+        const char rookMoves[]={-1,-10,1,10};
+        unsigned char f,to;
+        Color attColor;
+        if (activeColor==Color::White) attColor=Black;
+        for (unsigned char c=21; c<99; c++) {
+            f=field[c];
+            if (!f) continue;
+            if (f & attColor) continue;
+            switch (field[c] & 0b00011100) {
+                case PieceType::Pawn:
+                    pos2coord(c, &y, &x);
+                    if (f & Color::Black) {
+                        dy=-10;
+                        pawnCap=pawnCapB;
+                        promoteRank=0;
+                        startPawn=6;
+                    } else {
+                        dy=10;
+                        pawnCap=pawnCapW;
+                        promoteRank=7;
+                        startPawn=1;
+                    }
+                    to=c+dy;
+                    if (field[to]==Empty) {
+                        pos2coord(to,&yt,&xt);
+                        if (yt==promoteRank) {
+                            for (PieceType p: pp) {
+                                ml.push_back(Move(c,to,p));
+                            }
+                        } else {
+                            ml.push_back(Move(c,to,Empty));
+                            if (y==startPawn) {
+                                to+=dy;
+                                if (field[to]==Empty) {
+                                    ml.push_back(Move(c,to,Empty));
+                                }
+                            }
+                        }
+                    }
+                    for (int pci=0; pci<2; pci++) {
+                        to=pawnCap[pci];
+                        pos2coord(to,&yt,&xt);
+                        if (field[to] & attColor || to==epPos) {
+                            if (yt==promoteRank) {
+                                for (PieceType p: pp) {
+                                    ml.push_back(Move(c,to,p));
+                                }
+                            } else {
+                                ml.push_back(Move(c,to,Empty));
+                            }
+                        }
+                    }
+                    break;
+                case PieceType::King:
+                    if (f & Color::Black) {
+                        if (castleRights & CastleRights::BK) {
+                            if ((field[c_e8]==King & Black) && (field[c_f8]==0) && (field[c_g8]==0) && (field[c_h8]==Rook & Black)) {
+                                if (!attacked(c_e8, activeColor) && !attacked(c_f8, activeColor) && !attacked(c_g8, activeColor)) {
+                                    ml.push_back(Move(c_e8, c_g8, Empty));
+                                }
+                            }
+                        }
+                        if (castleRights & CastleRights::BQ) {
+                            if ((field[c_e8]==King & Black) && (field[c_d8]==0) && (field[c_c8]==0) && (field[c_b8]==0) && (field[c_a8]==Rook & Black)) {
+                                if (!attacked(c_c8, activeColor) && !attacked(c_d8, activeColor) && !attacked(c_e8, activeColor)) {
+                                    ml.push_back(Move(c_e8, c_c8, Empty));
+                                }
+                            }
+                        }
+                    } else {
+                        if (castleRights & CastleRights::WK) {
+                            if ((field[c_e1]==King & White) && (field[c_f1]==0) && (field[c_g1]==0) && (field[c_h1]==Rook & White)) {
+                                if (!attacked(c_e1, activeColor) && !attacked(c_f1, activeColor) && !attacked(c_g1, activeColor)) {
+                                    ml.push_back(Move(c_e1, c_g1, Empty));
+                                }
+                            }
+                        }
+                        if (castleRights & CastleRights::WQ) {
+                            if ((field[c_e1]==King & White) && (field[c_d1]==0) && (field[c_c1]==0) && (field[c_b1]==0) && (field[c_a1]==Rook & White)) {
+                                if (!attacked(c_c1, activeColor) && !attacked(c_d1, activeColor) && !attacked(c_e1, activeColor)) {
+                                    ml.push_back(Move(c_e1, c_c1, Empty));
+                                }
+                            }
+                        }
+                    }
+                    for (int di=0; di<8; ++di) {
+                        to=c+kingQueenMoves[di];
+                        if ((field[to]==0) || (field[to]&attColor)) {
+                            ml.push_back(Move(c,to,Empty));
+                        }
+                    }
+                    break;
+                case PieceType::Knight:
+                    for (int di=0; di<8; ++di) {
+                        to=c+knightMoves[di];
+                        if ((field[to]==0) || (field[to]&attColor)) {
+                            ml.push_back(Move(c,to,Empty));
+                        }
+                    }
+                    break;
+                case PieceType::Bishop:
+                    for (int di=0; di<4; ++di) {
+                        to=c+bishopMoves[di];
+                        while (true) {
+                            if ((field[to]==0) || (field[to]&attColor)) {
+                                ml.push_back(Move(c,to,Empty));
+                            } else break;
+                            if (field[to]&attColor) break;
+                            to+=knightMoves[di];
+                        }
+                    }
+                    break;
+                case PieceType::Rook:
+                    for (int di=0; di<4; ++di) {
+                        to=c+rookMoves[di];
+                        while (true) {
+                            if ((field[to]==0) || (field[to]&attColor)) {
+                                ml.push_back(Move(c,to,Empty));
+                            } else break;
+                            if (field[to]&attColor) break;
+                            to+=knightMoves[di];
+                        }
+                    }
+                    break;
+                case PieceType::Queen:
+                    for (int di=0; di<8; ++di) {
+                        to=c+kingQueenMoves[di];
+                        while (true) {
+                            if ((field[to]==0) || (field[to]&attColor)) {
+                                ml.push_back(Move(c,to,Empty));
+                            } else break;
+                            if (field[to]&attColor) break;
+                            to+=knightMoves[di];
+                        }
+                    }
+                    break;
+                default:
+                    wcout << L"Unidentified flying object" << endl;
+                    break;
+            }
+        }
         return ml;
     }
 
@@ -521,6 +684,7 @@ struct Board {
                 vml.push_back(m);
             }
         }
+        return vml;
     }
 
 };
