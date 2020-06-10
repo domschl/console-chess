@@ -875,8 +875,11 @@ struct Board {
         return brd;
     }
 
-    static bool move_sorter(Move const& m1, Move const& m2) {
+    static bool move_white_sorter(Move const& m1, Move const& m2) {
         return m1.eval > m2.eval;
+    }
+    static bool move_black_sorter(Move const& m1, Move const& m2) {
+        return m1.eval < m2.eval;
     }
 
     vector<Move> moveList(bool eval=false) {
@@ -901,7 +904,8 @@ struct Board {
 
         }
         if (eval) {
-            std::sort(vml.begin(), vml.end(), &Board::move_sorter);
+            if (activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
+            else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
         }
         return vml;
     }
@@ -939,50 +943,62 @@ struct Board {
 
     int eval() {
         Board brd=*this;
-        int val=0,attval,attvalx,mlval,pieceval;
+        int val=0,attval,defval,mlval,pieceval;
         int v1,v2;
-        int fi;
-        Color attColor;
+        int fTyp;
+        int pCol;
         vector<unsigned char> atl,atlx;
         vector<Move> ml;
         unsigned char f;
 
-        printPos(&brd, -1);
+        //wcout << endl;
+        //printPos(&brd, -1);
 
         int pieceVals[]={0,100,290,300,500,900,100000};
-        int attVals[]={0,5,10,10,15,20,30};
-        int attValsO[]={0,20,10,10,5,2,0};
-        if (activeColor==White) attColor=Black;
-        else attColor=White;
+        int attVals[]={12,10,10,10,15,20,30};
+        int defVals[]={10,5,10,10,5,2,3};
+
+        //if (activeColor==White) attColor=Black;
+        //else attColor=White;
         attval=0;
-        attvalx=0;
+        defval=0;
         pieceval=0;
         for (int c=21; c<99; c++) {
             f=field[c];
             if (f==0xff) continue;
-            if (f==0) continue;
-            fi=field[c]>>2;
-            v1=pieceVals[fi];
-            if (f & activeColor) pieceval+=v1;
-            else pieceval-=v1;
-            if (f & attColor) {
-                v1= (-1)*attackers(c, attColor).size() * attVals[fi];
-                v2=attackers(c, activeColor).size() * attValsO[fi];
-            } else {
-                v1=attackers(c, attColor).size() * attVals[fi];
-                v2= (-1)*attackers(c, attColor).size() * attValsO[fi];
-            }
+            fTyp=field[c]>>2;
+            pCol=field[c]&3;
+
+            if (pCol & White) pieceval+=pieceVals[fTyp];
+            else pieceval-=pieceVals[fTyp];
+
+            switch (pCol) {
+                case Black:
+                case None:
+                    v1 = attackers(c, Black).size() * attVals[fTyp];
+                    v2 = attackers(c, White).size() * defVals[fTyp];
+                    break;
+                case White:
+                    v1 = attackers(c, Black).size() * defVals[fTyp];
+                    v2 = attackers(c, White).size() * attVals[fTyp];
+                    break;
+            } 
             attval += v1;
-            attvalx -= v2;
+            defval += v2;
         }
-        attval /= 10;
-        attvalx /= 10;
-        if (brd.activeColor==White) brd.activeColor=Black;
-        else brd.activeColor=White;
+        attval /= 20;
+        defval /= 20;
+
+
+        brd.activeColor=White;
         ml=brd.rawMoveList();
         mlval=ml.size();
-        val = attval + attvalx + pieceval + mlval;
-        wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", attval-x: " << to_wstring(attvalx) << ", mlval: " << to_wstring(mlval) << endl;
+        brd.activeColor=Black;
+        ml=brd.rawMoveList();
+        mlval -=ml.size();
+
+        val = attval + defval + pieceval + mlval;
+        wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", defval: " << to_wstring(defval) << ", mlval: " << to_wstring(mlval) << endl;
         return val;
     }
 
@@ -1031,41 +1047,9 @@ PerftData perftData[] = {
         {"pej-22", "8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1", {37, 183, 6559, 23527}}
 };
 
-void printMoves(string fen) {
-    Board brd(fen);
-    brd.printPos(&brd);
-    brd.printInfo();
-    vector<Board::Move> ml=brd.moveList(true);
-    for (Board::Move mv : ml) {
-        string uci=mv.toUciWithEval();
-        wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << L" ";
-    }
-    wcout << endl;
-}
-int main(int argc, char *argv[]) {
-#ifndef __APPLE__
-    std::setlocale(LC_ALL, "");
-#else
-    setlocale(LC_ALL, "");
-#endif
-    /*
-    string fen="8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
-    string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    Board brd(start_fen,true);
-    //Board brd;
-    Term::clr();
-    brd.printPos(&brd);
-    brd.printInfo();
-    string fen2=brd.fen();
-    wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(start_fen) << endl;
-    wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(fen2) << endl;
-    */
-    /*   
-    string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    printMoves(start_fen);
-    */
-    
-    int err=0;
+
+int perftTests() {
+        int err=0;
     int ok=0;
     long knps=0;
     long start,end;
@@ -1101,6 +1085,44 @@ int main(int argc, char *argv[]) {
         wcout << endl;
     }
     wcout << L"OK: " << to_wstring(ok) << L" Error: " << to_wstring(err) << endl;
+    return err;
+}
+vector<Board::Move> doShowMoves(Board brd) {
+    brd.printPos(&brd,-1);
+    brd.printInfo();
+    vector<Board::Move> ml=brd.moveList(true);
+    for (Board::Move mv : ml) {
+        string uci=mv.toUciWithEval();
+        wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << L" ";
+    }
+    wcout << endl;
+    return ml;
+}
+
+void miniGame() {
+    vector<Board::Move> ml;
+    string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    Board brd(start_fen);
+
+    for (int i=0; i<8; i++) {
+        ml=doShowMoves(brd);
+        brd=brd.rawApply(ml[0]); 
+    }
+}
+
+int main(int argc, char *argv[]) {
+#ifndef __APPLE__
+    std::setlocale(LC_ALL, "");
+#else
+    setlocale(LC_ALL, "");
+#endif
+
+    miniGame();   
     
-    return 0;
+    /*
+    int err=perftTests();
+    exit(err);
+    */
+   return 0;
+
 }
