@@ -1,4 +1,5 @@
 #include <cstring>
+#include <climits>
 #include <string>
 #include <iostream>
 #include <locale>
@@ -69,6 +70,10 @@ class Term {
         wcout << s;
     }
 };
+
+#define MAX_EVAL INT_MAX
+#define MIN_EVAL (INT_MIN+3)
+#define INVALID_EVAL INT_MIN
 
 struct Board {
     unsigned char field[120];
@@ -352,21 +357,22 @@ struct Board {
         unsigned char to;
         PieceType promote;
         int eval;
-
         Move() {
             from=0;
             to=0;
             promote=Empty;
-            eval=0xfffffff;
+            eval=INVALID_EVAL;
         }
         Move(unsigned char from, unsigned char to, PieceType promote=Empty): from(from), to(to), promote(promote) {
         }
+        // Copy constructor 
+        Move(const Move &mv) {from=mv.from; to=mv.to; promote=mv.promote; eval=mv.eval; } 
         // Decode uci and algebraic-notation strings to move [TODO: incomplete]
         Move(string alg, Board *brd=nullptr) {
             promote=Empty;
             from=0;
             to=0;
-            eval=0xfffffff;
+            eval=INVALID_EVAL;
             if (alg.length()>=5 && alg[2]=='-') { // UCI Format
                 from=Board::toPos(alg.substr(0,2));
                 to=Board::toPos(alg.substr(3,2));
@@ -448,7 +454,7 @@ struct Board {
             if (promote!=Empty) {
                 uci+=string(1,piece2asc(promote));
             }
-            if (eval!=0xfffffff) {
+            if (eval!=INVALID_EVAL) {
                 uci+=" ("+std::to_string(eval)+")";
             }
             return uci;
@@ -941,7 +947,7 @@ struct Board {
         }
     }
 
-    int eval() {
+    int eval(bool verbose=false) {
         Board brd=*this;
         int val=0,attval,defval,mlval,pieceval;
         int v1,v2;
@@ -958,16 +964,14 @@ struct Board {
         int attVals[]={12,10,10,10,15,20,30};
         int defVals[]={10,5,10,10,5,2,3};
 
-        //if (activeColor==White) attColor=Black;
-        //else attColor=White;
         attval=0;
         defval=0;
         pieceval=0;
         for (int c=21; c<99; c++) {
-            f=field[c];
+            f=brd.field[c];
             if (f==0xff) continue;
-            fTyp=field[c]>>2;
-            pCol=field[c]&3;
+            fTyp=brd.field[c]>>2;
+            pCol=brd.field[c]&3;
 
             if (pCol & White) pieceval+=pieceVals[fTyp];
             else pieceval-=pieceVals[fTyp];
@@ -998,10 +1002,84 @@ struct Board {
         mlval -=ml.size();
 
         val = attval + defval + pieceval + mlval;
-        wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", defval: " << to_wstring(defval) << ", mlval: " << to_wstring(mlval) << endl;
+        if (verbose) wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", defval: " << to_wstring(defval) << ", mlval: " << to_wstring(mlval) << endl;
         return val;
     }
 
+    int minimax(Board brd, int depth, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL) {
+        bool gameOver=false;
+        int maxEval,minEval,eval;
+        Board new_brd;
+        vector<Move> ml(brd.moveList(true));
+        if (ml.size()==0) {
+            gameOver=true;
+        }
+        if (gameOver) {
+            return INVALID_EVAL; // XXX Qualify
+        }
+        if (depth==0) return ml[0].eval;
+        if (col==White) {
+            maxEval=MIN_EVAL;
+            for (Move mv : ml) {
+                new_brd=brd.rawApply(mv);
+                eval = new_brd.minimax(new_brd, depth-1, Black, alpha, beta);
+                if (eval>maxEval) {
+                    maxEval=eval;
+                }
+                if (eval>alpha) alpha=eval;
+                if (alpha>=beta) break;
+            }
+            return maxEval;
+        } else {
+            minEval=MAX_EVAL;
+            for (Move mv : ml) {
+                Board new_brd=brd.rawApply(mv);
+                eval = minimax(new_brd, depth-1, White, alpha, beta);
+                if (eval<minEval) {
+                    minEval=eval;
+                }
+                if (eval<beta) beta=eval;
+                if (beta<=alpha) break;
+            }
+            return minEval;
+        }
+    }
+
+    vector<Move> minimaxEval(Board brd, int depth) {
+        vector<Move> ml(brd.moveList(true));
+        vector<Move> vml;
+        int eval;
+        for (Move mv: ml) {
+            eval=minimax(brd,depth,brd.activeColor);
+            vml.push_back(mv);
+        }
+        if (brd.activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
+        else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
+        return vml;
+    }
+
+    vector<Move> searchBestMove(Board brd, int depth) {
+        vector<Move> ml(brd.moveList(true)), vml;
+        Board newBoard;
+        int eval;
+        wcout << L"Best at depth: " << 0 << L" " << stringenc(ml[0].toUciWithEval()) << endl;
+        for (int d=1; d<depth; d++) {
+            for (Move mv: ml) {
+                newBoard=brd.rawApply(mv);
+                eval=minimax(newBoard,d,newBoard.activeColor);
+                mv.eval=eval;
+                vml.push_back(mv);
+            }
+            if (brd.activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
+            else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
+            ml=vml;
+            for (int b=0; b<5; b++) {
+                wcout << L"Best at depth: " << d << L", " << b+1 << ".:" << stringenc(ml[b].toUciWithEval()) << endl;
+            }
+            vml.erase(vml.begin(), vml.end());
+        }
+        return ml;
+    }
 };
 
 
@@ -1090,7 +1168,7 @@ int perftTests() {
 vector<Board::Move> doShowMoves(Board brd) {
     brd.printPos(&brd,-1);
     brd.printInfo();
-    vector<Board::Move> ml=brd.moveList(true);
+    vector<Board::Move> ml(brd.moveList(true));
     for (Board::Move mv : ml) {
         string uci=mv.toUciWithEval();
         wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << L" ";
@@ -1100,13 +1178,21 @@ vector<Board::Move> doShowMoves(Board brd) {
 }
 
 void miniGame() {
-    vector<Board::Move> ml;
+    
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     Board brd(start_fen);
 
-    for (int i=0; i<8; i++) {
-        ml=doShowMoves(brd);
+    for (int i=0; i<10; i++) {
+        //ml=doShowMoves(brd);
+        wcout << endl;
+        brd.printPos(&brd,-1);
+        vector<Board::Move> ml(brd.searchBestMove(brd,4));
+        if (ml.size()==0) {
+            wcout << L"Game over!" << endl;
+            break;
+        }
         brd=brd.rawApply(ml[0]); 
+        wcout << stringenc(ml[0].toUciWithEval()) << endl;
     }
 }
 
