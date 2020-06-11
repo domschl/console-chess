@@ -82,6 +82,7 @@ struct Board {
     unsigned char epPos;
     Color activeColor;
     unsigned int moveNumber;
+    unsigned char hasCastled;
 
     Board() {
         startPosition();
@@ -93,7 +94,7 @@ struct Board {
         activeColor=Color::White;
         epPos=0;
         fiftyMoves=0;
-        moveNumber=1;
+        moveNumber=0;
         vector<string> parts=split(fen,' ');
         if (parts.size() < 3) {
             if (verbose) wcout << L"Missing parts of fen, invalid!" << endl;
@@ -271,6 +272,7 @@ struct Board {
         epPos=0;
         fiftyMoves=0;
         moveNumber=0;
+        hasCastled=0;
     }
 
     static inline unsigned char toPos(unsigned char y, unsigned char x) {
@@ -529,13 +531,12 @@ struct Board {
         return pl;
     }
 
-    vector<unsigned char> attackedBy(unsigned char pos, Color col, PieceType p) {
-        vector<unsigned char> ml;
-        vector<unsigned char> pl=attackers(pos, col);
-        for (unsigned char pi : pl) {
-            if (field[pi]>>2 == p>>2) ml.push_back(pi);
-        }
-        return ml;
+    vector<unsigned char> attackedBy(unsigned char pos, Color col) {
+        vector<unsigned char> apl;
+        vector<unsigned char> posl=attackers(pos, col);
+        for (unsigned char pi : posl) apl.push_back(field[pi]>>2);
+        std::sort(apl.begin(),apl.end());
+        return apl;
     }
 
     unsigned char kingsPos(Color col) {
@@ -743,6 +744,193 @@ struct Board {
         return ml;
     }
 
+vector<Move> rawCaptureList() {
+        vector<Move> ml;
+        int x,y,xt,yt;
+        int dy,promoteRank,startPawn;
+        const PieceType pp[]={Knight, Bishop, Rook, Queen};
+        const char pawnCapW[]={9,11};
+        const char pawnCapB[]={-9,-11};
+        const char *pawnCap;
+        const unsigned char c_a1=toPos("a1");
+        const unsigned char c_b1=toPos("b1");
+        const unsigned char c_c1=toPos("c1");
+        const unsigned char c_d1=toPos("d1");
+        const unsigned char c_e1=toPos("e1");
+        const unsigned char c_f1=toPos("f1");
+        const unsigned char c_g1=toPos("g1");
+        const unsigned char c_h1=toPos("h1");
+        const unsigned char c_a8=toPos("a8");
+        const unsigned char c_b8=toPos("b8");
+        const unsigned char c_c8=toPos("c8");
+        const unsigned char c_d8=toPos("d8");
+        const unsigned char c_e8=toPos("e8");
+        const unsigned char c_f8=toPos("f8");
+        const unsigned char c_g8=toPos("g8");
+        const unsigned char c_h8=toPos("h8");
+        const char kingQueenMoves[]={-1,-11,-10,-9,1,11,10,9};
+        const char knightMoves[]={8,12,21,19,-8,-12,-21,-19};
+        const char bishopMoves[]={-9,-11,9,11};
+        const char rookMoves[]={-1,-10,1,10};
+        unsigned char f,to;
+        Color attColor;
+        if (activeColor==Color::White) attColor=Black;
+        else attColor=White;
+        for (unsigned char c=21; c<99; c++) {
+            f=field[c];
+            if (!f) continue;
+            if (f==0xff) continue;
+            if (f & attColor) continue;
+            // wcout << L"Field: " << to_wstring(c) << endl;
+            switch (field[c] & 0b00011100) {
+                case PieceType::Pawn:
+                    pos2coord(c, &y, &x);
+                    if (f & Color::Black) {
+                        dy=-10;
+                        pawnCap=pawnCapB;
+                        promoteRank=0;
+                        startPawn=6;
+                    } else {
+                        dy=10;
+                        pawnCap=pawnCapW;
+                        promoteRank=7;
+                        startPawn=1;
+                    }
+                    /*
+                    to=c+dy;
+                    if (field[to]==Empty) {
+                        pos2coord(to,&yt,&xt);
+                        if (yt==promoteRank) {
+                            for (PieceType p: pp) {
+                                ml.push_back(Move(c,to,p));
+                            }
+                        } else {
+                            ml.push_back(Move(c,to,Empty));
+                            if (y==startPawn) {
+                                to+=dy;
+                                if (field[to]==Empty) {
+                                    ml.push_back(Move(c,to,Empty));
+                                }
+                            }
+                        }
+                    }
+                    */
+                    for (int pci=0; pci<2; pci++) {
+                        to=c+pawnCap[pci];
+                        if (field[to]==0xff) continue;
+                        pos2coord(to,&yt,&xt);
+                        if ((field[to] & attColor) || to==epPos) {
+                            if (yt==promoteRank) {
+                                for (PieceType p: pp) {
+                                    ml.push_back(Move(c,to,p));
+                                }
+                            } else {
+                                ml.push_back(Move(c,to,Empty));
+                            }
+                        }
+                    }
+                    break;
+                case PieceType::King:
+                    /*
+                    if (f & Color::Black) {
+                        if (castleRights & CastleRights::CBK) {
+                            if ((field[c_e8]==(King | Black)) && (field[c_f8]==0) && (field[c_g8]==0) && (field[c_h8]==(Rook | Black))) {
+                                if (!attacked(c_e8, activeColor) && !attacked(c_f8, activeColor) && !attacked(c_g8, activeColor)) {
+                                    ml.push_back(Move(c_e8, c_g8, Empty));
+                                }
+                            }
+                        }
+                        if (castleRights & CastleRights::CBQ) {
+                            if ((field[c_e8]==(King | Black)) && (field[c_d8]==0) && (field[c_c8]==0) && (field[c_b8]==0) && (field[c_a8]==(Rook | Black))) {
+                                if (!attacked(c_c8, activeColor) && !attacked(c_d8, activeColor) && !attacked(c_e8, activeColor)) {
+                                    ml.push_back(Move(c_e8, c_c8, Empty));
+                                }
+                            }
+                        }
+                    } else {
+                        if (castleRights & CastleRights::CWK) {
+                            if ((field[c_e1]==(King | White)) && (field[c_f1]==0) && (field[c_g1]==0) && (field[c_h1]==(Rook | White))) {
+                                if (!attacked(c_e1, activeColor) && !attacked(c_f1, activeColor) && !attacked(c_g1, activeColor)) {
+                                    ml.push_back(Move(c_e1, c_g1, Empty));
+                                }
+                            }
+                        }
+                        if (castleRights & CastleRights::CWQ) {
+                            if ((field[c_e1]==(King | White)) && (field[c_d1]==0) && (field[c_c1]==0) && (field[c_b1]==0) && (field[c_a1]==(Rook | White))) {
+                                if (!attacked(c_c1, activeColor) && !attacked(c_d1, activeColor) && !attacked(c_e1, activeColor)) {
+                                    ml.push_back(Move(c_e1, c_c1, Empty));
+                                }
+                            }
+                        }
+                    }
+                    */
+                    for (int di=0; di<8; ++di) {
+                        to=c+kingQueenMoves[di];
+                        if (field[to]==0xff) continue;
+                        if (/*(field[to]==0) ||*/ (field[to]&attColor)) {
+                            ml.push_back(Move(c,to,Empty));
+                        }
+                    }
+                    break;
+                case PieceType::Knight:
+                    for (int di=0; di<8; ++di) {
+                        to=c+knightMoves[di];
+                        if (field[to]==0xff) continue;
+                        if (/*(field[to]==0) ||*/ (field[to]&attColor)) {
+                            ml.push_back(Move(c,to,Empty));
+                        }
+                    }
+                    break;
+                case PieceType::Bishop:
+                    for (int di=0; di<4; ++di) {
+                        to=c+bishopMoves[di];
+                        if (field[to]==0xff) continue;
+                        while (true) {
+                            if ((field[to]==0) || (field[to]&attColor)) {
+                                if ((field[to]&attColor)) ml.push_back(Move(c,to,Empty));
+                            } else break;
+                            if (field[to]&attColor) break;
+                            to+=bishopMoves[di];
+                            if (field[to]==0xff) break;
+                        }
+                    }
+                    break;
+                case PieceType::Rook:
+                    for (int di=0; di<4; ++di) {
+                        to=c+rookMoves[di];
+                        if (field[to]==0xff) continue;
+                        while (true) {
+                            if ((field[to]==0) || (field[to]&attColor)) {
+                                if ((field[to]&attColor)) ml.push_back(Move(c,to,Empty));
+                            } else break;
+                            if (field[to]&attColor) break;
+                            to+=rookMoves[di];
+                            if (field[to]==0xff) break;
+                        }
+                    }
+                    break;
+                case PieceType::Queen:
+                    for (int di=0; di<8; ++di) {
+                        to=c+kingQueenMoves[di];
+                        if (field[to]==0xff) continue;
+                        while (true) {
+                            if ((field[to]==0) || (field[to]&attColor)) {
+                                if ((field[to]&attColor)) ml.push_back(Move(c,to,Empty));
+                            } else break;
+                            if (field[to]&attColor) break;
+                            to+=kingQueenMoves[di];
+                            if (field[to]==0xff) break;
+                        }
+                    }
+                    break;
+                default:
+                    wcout << L"Unidentified flying object in rawML at: " << to_wstring(c) << L"->" << to_wstring(field[c]) << endl;
+                    break;
+            }
+        }
+        return ml;
+    }
+
     Board rawApply(Move mv, bool sanityChecks=true) {
         Board brd=*this;
         const unsigned char c_a1=toPos("a1");
@@ -806,20 +994,24 @@ struct Board {
                         if (mv.from==c_e1 && mv.to==c_g1) {
                             brd.field[c_f1]=brd.field[c_h1];
                             brd.field[c_h1]=0;
+                            brd.hasCastled |= White;
                         }
                         if (mv.from==c_e1 && mv.to==c_c1) {
                             brd.field[c_d1]=brd.field[c_a1];
                             brd.field[c_a1]=0;
+                            brd.hasCastled |= White;
                         }
                     } else {
                         brd.castleRights &= (CastleRights::CWK | CastleRights::CWQ);
                         if (mv.from==c_e8 && mv.to==c_g8) {
                             brd.field[c_f8]=brd.field[c_h8];
                             brd.field[c_h8]=0;
+                            brd.hasCastled |= Black;
                         }
                         if (mv.from==c_e8 && mv.to==c_c8) {
                             brd.field[c_d8]=brd.field[c_a8];
                             brd.field[c_a8]=0;
+                            brd.hasCastled |= White;
                         }
                     }
                     break;
@@ -947,6 +1139,7 @@ struct Board {
         }
     }
 
+    /*
     int eval(bool verbose=false) {
         Board brd=*this;
         int val=0,attval,defval,mlval,pieceval;
@@ -1005,26 +1198,153 @@ struct Board {
         if (verbose) wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", defval: " << to_wstring(defval) << ", mlval: " << to_wstring(mlval) << endl;
         return val;
     }
+    */
 
-    int minimax(Board brd, int depth, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL) {
+   
+    int statEx(int fInd, int col) {
+        int evl=0;
+        vector<unsigned char> stexw,stexb;
+        int pieceVals[]={0,100,290,300,500,900,100000};
+        if ((field[fInd]&3) != col) return 0;
+        int oth=White;
+        if (col==White) oth=Black;
+        if (col==White) {
+            stexw=attackedBy(fInd, (Color)col);
+            if (stexw.size()==0) return evl;
+            stexb=attackedBy(fInd, (Color)oth);
+            if (stexb.size()==0) return -pieceVals[field[fInd]>>2];
+            else {
+
+            }
+
+        }
+        return evl; // XXX incomplete
+    }
+    
+
+    int eval(bool verbose=false) {
+        Board brd=*this;
+        int evl=0;
+        int pieceEvl=0;
+        int attEvl=0;
+        int defEvl=0;
+        int kingEvl=0;
+        int moveEvl=0;
+        unsigned char fig,figTyp,pos;
+        Color figCol;
+        int pieceVals[]={0,100,290,300,500,900,100000};
+        //int attVals[]={12,10,10,10,15,20,30};
+        //int defVals[]={11,5,10,10,5,2,3};
+        //                              attacked
+        //                        -  p  n  b  r  q  k
+        const int attMat[7][7]={{ 0, 0, 0, 0, 0, 0, 0},  // -
+                                {25, 0,25,25,30,30,50},  // p
+                                {10,10, 0, 0,25,30,40},  // n
+                                {10,10, 0, 0,25,30,40},  // b   attacker
+                                {10, 5, 5, 5, 0,25,30},  // r
+                                { 2, 2, 2, 2, 2, 0,15},  // q
+                                { 2, 4, 2, 2, 2, 2, 0},  // k
+                        };
+        //                             defended
+        //                        -  p  n  b  r  q  k
+        const int defMat[7][7]={{ 0, 0, 0, 0, 0, 0, 0},  // -
+                                {25,25,25,25, 5, 0, 0},  // p
+                                {10, 5, 5, 5, 5, 2, 0},  // n
+                                {10, 5, 5, 5, 5, 2, 0},  // b   defender
+                                {10, 5, 5, 5,20, 2, 0},  // r
+                                { 2, 2, 2, 2, 2, 0, 0},  // q
+                                { 2,10, 2, 2, 2, 2, 0},  // k
+                        };
+        
+        vector<unsigned char>attW,attB;
+        //unsigned char matrix[120];
+        //memset(matrix,0xff,120);
+        /*
+        for (int fInd=21; fInd<99; fInd++) {
+            fig=brd.field[fInd];
+            if (fig==0xff) continue;
+            figTyp=brd.field[fInd]>>2;
+            figCol=(Color)(brd.field[fInd]&3);
+
+            if (figCol == White) {
+                pieceEvl += pieceVals[figTyp];
+
+            } else {
+                if (figCol == Black) {
+                    pieceEvl -= pieceVals[figTyp];
+                }
+            }
+
+            attW=brd.attackers(fInd,figCol);
+            for (unsigned char pos : attW) {
+                int attackerTyp=brd.field[pos]>>2;
+                if (figCol==Black) {
+                    attEvl += attMat[attackerTyp][figTyp];  
+                } else {
+                    attEvl -= attMat[attackerTyp][figTyp];
+                }
+            }
+            Color dC=White;
+            if (figCol==White) dC=Black;
+            attB=brd.attackers(fInd,dC);
+            for (unsigned char pos : attB) {
+                int defenderTyp=brd.field[pos]>>2;
+                if (figCol==Black) {
+                    defEvl -= defMat[defenderTyp][figTyp];  
+                } else {
+                    defEvl += defMat[defenderTyp][figTyp];
+                }
+            }
+
+        }
+        */
+        Board brdw(brd),brdb(brd);
+        brdw.activeColor=White;
+        brdb.activeColor=Black;
+        moveEvl=brdw.moveList().size()-brdb.moveList().size();
+
+        if (brd.castleRights & CastleRights::CWK) kingEvl += 30; 
+        if (brd.castleRights & CastleRights::CWQ) kingEvl += 30; 
+        if (brd.castleRights & CastleRights::CBK) kingEvl += -30; 
+        if (brd.castleRights & CastleRights::CBQ) kingEvl += -30;
+        if (brd.hasCastled & White) kingEvl +=80; 
+        if (brd.hasCastled & Black) kingEvl -=80; 
+        evl=pieceEvl*3+kingEvl*2+moveEvl*4; // *8+attEvl/2+defEvl;
+        return evl;
+    }
+
+
+    int minimax(Board brd, int depth, vector<Move>&principal, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
         bool gameOver=false;
-        int maxEval,minEval,eval;
+        int maxEval,minEval,eval,sil;
         Board new_brd;
         vector<Move> ml(brd.moveList(true));
+        if (depth>maxD) maxD=depth;
         if (ml.size()==0) {
             gameOver=true;
         }
-        if (gameOver) {
-            return INVALID_EVAL; // XXX Qualify
+        if (gameOver) { 
+            if (!brd.inCheck(brd.activeColor)) return 0;
+            if (brd.activeColor==White) return MIN_EVAL;
+            else return MAX_EVAL;
         }
-        if (depth==0) return ml[0].eval;
+        if ((depth<=0) && ((brd.field[ml[0].to]==0) || depth < -3)) {
+            return ml[0].eval;
+        }
+        sil=2;
+        if (curDepth<maxD) {
+            if (principal.size()<curDepth+1) principal.push_back(Move());
+        }
         if (col==White) {
             maxEval=MIN_EVAL;
             for (Move mv : ml) {
+                if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
+                if (sil>0) --sil;
                 new_brd=brd.rawApply(mv);
-                eval = new_brd.minimax(new_brd, depth-1, Black, alpha, beta);
+                eval = new_brd.minimax(new_brd, depth-1, principal, Black, alpha, beta, curDepth+1, maxD);
                 if (eval>maxEval) {
                     maxEval=eval;
+                    if (curDepth<principal.size()) principal[curDepth]=mv;
                 }
                 if (eval>alpha) alpha=eval;
                 if (alpha>=beta) break;
@@ -1033,10 +1353,13 @@ struct Board {
         } else {
             minEval=MAX_EVAL;
             for (Move mv : ml) {
-                Board new_brd=brd.rawApply(mv);
-                eval = minimax(new_brd, depth-1, White, alpha, beta);
+                if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
+                if (sil>0) --sil;
+                new_brd=brd.rawApply(mv);
+                eval = minimax(new_brd, depth-1, principal, White, alpha, beta, curDepth+1, maxD);
                 if (eval<minEval) {
                     minEval=eval;
+                    if (curDepth<principal.size()) principal[curDepth]=mv;
                 }
                 if (eval<beta) beta=eval;
                 if (beta<=alpha) break;
@@ -1047,10 +1370,10 @@ struct Board {
 
     vector<Move> minimaxEval(Board brd, int depth) {
         vector<Move> ml(brd.moveList(true));
-        vector<Move> vml;
+        vector<Move> vml, principal;
         int eval;
         for (Move mv: ml) {
-            eval=minimax(brd,depth,brd.activeColor);
+            eval=minimax(brd,depth, principal, brd.activeColor);
             vml.push_back(mv);
         }
         if (brd.activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
@@ -1059,23 +1382,53 @@ struct Board {
     }
 
     vector<Move> searchBestMove(Board brd, int depth) {
-        vector<Move> ml(brd.moveList(true)), vml;
+        vector<Move> ml(brd.moveList(true)), vml, best_principal, principal;
         Board newBoard;
-        int eval;
+        int bestEval, eval, vars;
+
         wcout << L"Best at depth: " << 0 << L" " << stringenc(ml[0].toUciWithEval()) << endl;
+        wcout << L"    Best at depth: " << 0 << L", ";
+        int maxAlternatives=6;
+        if (ml.size()>maxAlternatives) vars=maxAlternatives;
+        else vars=ml.size();
+        for (int b=0; b<vars; b++) {
+            wcout << b+1 << ".:" << stringenc(ml[b].toUciWithEval()) << L", ";
+        }
+        wcout << endl;
         for (int d=1; d<depth; d++) {
+            if (brd.activeColor==White) bestEval=MIN_EVAL;
+            else bestEval=MAX_EVAL;
             for (Move mv: ml) {
                 newBoard=brd.rawApply(mv);
-                eval=minimax(newBoard,d,newBoard.activeColor);
+                principal.erase(principal.begin(),principal.end());
+                principal.push_back(mv);
+                eval=minimax(newBoard,d,principal, newBoard.activeColor);
                 mv.eval=eval;
                 vml.push_back(mv);
+                if (brd.activeColor==White) {
+                    if (eval>bestEval) best_principal=principal;
+                    bestEval=eval;
+                } else {
+                    if (eval<bestEval) best_principal=principal;
+                    bestEval=eval;
+                }
             }
             if (brd.activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
             else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
             ml=vml;
-            for (int b=0; b<5; b++) {
-                wcout << L"Best at depth: " << d << L", " << b+1 << ".:" << stringenc(ml[b].toUciWithEval()) << endl;
+            wcout << L"    Best at depth: " << d << L", ";
+            if (ml.size()>maxAlternatives) vars=maxAlternatives;
+            else vars=ml.size();
+            for (int b=0; b<vars; b++) {
+                wcout << b+1 << ".:" << stringenc(ml[b].toUciWithEval()) << L", ";
             }
+            wcout << endl;
+            wcout << "Best line: ";
+            for (Move mv : best_principal) {
+                wcout << stringenc(mv.toUciWithEval()) << " ";
+            }
+            wcout << endl;
+
             vml.erase(vml.begin(), vml.end());
         }
         return ml;
@@ -1182,11 +1535,11 @@ void miniGame() {
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     Board brd(start_fen);
 
-    for (int i=0; i<10; i++) {
+    for (int i=0; i<50; i++) {
         //ml=doShowMoves(brd);
         wcout << endl;
         brd.printPos(&brd,-1);
-        vector<Board::Move> ml(brd.searchBestMove(brd,4));
+        vector<Board::Move> ml(brd.searchBestMove(brd,5));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
