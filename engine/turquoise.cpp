@@ -1108,6 +1108,33 @@ vector<Move> rawCaptureList() {
         return vml;
     }
 
+    vector<Move> captureList(bool eval=false) {
+        vector<Move> ml=rawCaptureList();
+        vector<Move> vml;
+        for (auto m : ml) {
+            //string uci=m.toUci();
+            //wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
+            // Board brd(*this);
+            Board nbrd=rawApply(m);
+            // brd.printPos(&brd,-1);
+            if (!nbrd.inCheck(activeColor)) {
+                //wcout << L"validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
+                if (eval) {
+                    m.eval=nbrd.eval();
+                }
+                vml.push_back(m);
+            }/* else {
+                string uci=m.toUci();
+                wcout << L"not validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
+            }*/
+
+        }
+        if (eval) {
+            if (activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
+            else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
+        }
+        return vml;
+    }
 
     unsigned long int calcPerft(Board brd, int depth, int curDepth=0, vector<Move> moveHistory={}) {
         vector<Move> ml=brd.moveList();
@@ -1201,25 +1228,60 @@ vector<Move> rawCaptureList() {
     */
 
    
-    int statEx(int fInd, int col) {
-        int evl=0;
-        vector<unsigned char> stexw,stexb;
-        int pieceVals[]={0,100,290,300,500,900,100000};
-        if ((field[fInd]&3) != col) return 0;
-        int oth=White;
-        if (col==White) oth=Black;
-        if (col==White) {
-            stexw=attackedBy(fInd, (Color)col);
-            if (stexw.size()==0) return evl;
-            stexb=attackedBy(fInd, (Color)oth);
-            if (stexb.size()==0) return -pieceVals[field[fInd]>>2];
-            else {
-
-            }
-
+    int exchangeTree(Board brd, int depth, vector<Move>&principal, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
+        bool gameOver=false;
+        int maxEval,minEval,eval,sil;
+        Board new_brd;
+        vector<Move> ml(brd.moveList(true));
+        if (depth>maxD) maxD=depth;
+        if (ml.size()==0) {
+            gameOver=true;
         }
-        return evl; // XXX incomplete
+        if (gameOver) { 
+            if (!brd.inCheck(brd.activeColor)) return 0;
+            if (brd.activeColor==White) return MIN_EVAL;
+            else return MAX_EVAL;
+        }
+        if ((depth<=0) && ((brd.field[ml[0].to]==0) || depth < -3)) {
+            return ml[0].eval;
+        }
+        sil=2;
+        if (curDepth<maxD) {
+            if (principal.size()<curDepth+1) principal.push_back(Move());
+        }
+        if (col==White) {
+            maxEval=MIN_EVAL;
+            for (Move mv : ml) {
+                if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
+                if (sil>0) --sil;
+                new_brd=brd.rawApply(mv);
+                eval = new_brd.minimax(new_brd, depth-1, principal, Black, alpha, beta, curDepth+1, maxD);
+                if (eval>maxEval) {
+                    maxEval=eval;
+                    if (curDepth<principal.size()) principal[curDepth]=mv;
+                }
+                if (eval>alpha) alpha=eval;
+                if (alpha>=beta) break;
+            }
+            return maxEval;
+        } else {
+            minEval=MAX_EVAL;
+            for (Move mv : ml) {
+                if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
+                if (sil>0) --sil;
+                new_brd=brd.rawApply(mv);
+                eval = minimax(new_brd, depth-1, principal, White, alpha, beta, curDepth+1, maxD);
+                if (eval<minEval) {
+                    minEval=eval;
+                    if (curDepth<principal.size()) principal[curDepth]=mv;
+                }
+                if (eval<beta) beta=eval;
+                if (beta<=alpha) break;
+            }
+            return minEval;
+        }
     }
+
     
 
     int eval(bool verbose=false) {
