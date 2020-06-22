@@ -36,7 +36,11 @@ enum Piece {bp=(PieceType::Pawn | Color::Black),
 enum CastleRights {NoCastling=0, CWK=1, CWQ=2, CBK=4, CBQ=8};
 
 wstring stringenc(string s) {
+    #ifdef USE_UTF8
+    return s
+    #else
     return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(s);
+    #endif
 }
 
 class Term {
@@ -107,9 +111,6 @@ struct Board {
         }
         for (int y=7; y>=0; y--) {
             int x=0;
-        //wcout << to_wstring(y) << endl;
-        //wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(rows[y]) << endl;
-        //wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(wp) << endl;
 
             for (int i=0; i<rows[7-y].length(); i++) {
                 if (x>7) {
@@ -348,7 +349,7 @@ struct Board {
         if (epPos==0) wcout << L"No enpassant" << endl;
         else {
             string ep=pos2string(epPos);
-            wcout << L"Enpassant: [" << to_wstring((int)epPos) << L"] " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(ep) << endl;
+            wcout << L"Enpassant: [" << to_wstring((int)epPos) << L"] " << stringenc(ep) << endl;
         }
         wcout << L"Fifty-move-state: " << to_wstring((int)fiftyMoves) << endl;
         wcout << L"Move-number: " << to_wstring((int)moveNumber) << endl;
@@ -953,14 +954,14 @@ vector<Move> rawCaptureList() {
             if ((field[mv.from] & activeColor)!=activeColor) {
                 wcout << L"can't apply move: from-field is not occupied by piece of active color" << endl;
                 string uci=mv.toUci();
-                wcout << L"move: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;                           
+                wcout << L"move: " << stringenc(uci) << endl;                           
                 emptyBoard();
                 return *this;
             }
             if (field[mv.from]==Empty) {
                 wcout << L"can't apply move: from-field is empty" << endl;
                 string uci=mv.toUci();
-                wcout << L"move: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;                           
+                wcout << L"move: " << stringenc(uci) << endl;                           
                 emptyBoard();
                 return *this;
             }
@@ -1061,7 +1062,7 @@ vector<Move> rawCaptureList() {
                     break;
                 default:
                     string uci=mv.toUci();
-                    wcout << L"Unidentified flying object in rawApply at: " << to_wstring(pf) << L"->" << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;
+                    wcout << L"Unidentified flying object in rawApply at: " << to_wstring(pf) << L"->" << stringenc(uci) << endl;
                     emptyBoard();
                     return *this;
                     break;
@@ -1084,22 +1085,13 @@ vector<Move> rawCaptureList() {
         vector<Move> ml=rawMoveList();
         vector<Move> vml;
         for (auto m : ml) {
-            //string uci=m.toUci();
-            //wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
-            // Board brd(*this);
             Board nbrd=rawApply(m);
-            // brd.printPos(&brd,-1);
             if (!nbrd.inCheck(activeColor)) {
-                //wcout << L"validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
                 if (eval) {
                     m.eval=nbrd.eval();
                 }
                 vml.push_back(m);
-            }/* else {
-                string uci=m.toUci();
-                wcout << L"not validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
-            }*/
-
+            }
         }
         if (eval) {
             if (activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
@@ -1112,22 +1104,13 @@ vector<Move> rawCaptureList() {
         vector<Move> ml=rawCaptureList();
         vector<Move> vml;
         for (auto m : ml) {
-            //string uci=m.toUci();
-            //wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
-            // Board brd(*this);
             Board nbrd=rawApply(m);
-            // brd.printPos(&brd,-1);
             if (!nbrd.inCheck(activeColor)) {
-                //wcout << L"validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
                 if (eval) {
                     m.eval=nbrd.eval();
                 }
                 vml.push_back(m);
-            }/* else {
-                string uci=m.toUci();
-                wcout << L"not validated: " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;           
-            }*/
-
+            }
         }
         if (eval) {
             if (activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
@@ -1140,26 +1123,11 @@ vector<Move> rawCaptureList() {
         vector<Move> ml=brd.moveList();
         unsigned long int cnt=0;
         if (depth==curDepth+1) {
-            /*
-            wcout << L"  vars: " << to_wstring(ml.size()) << endl;
-            for (Move mv : ml) {
-                string uci=mv.toUci();
-                wcout << L"  Depth: " << to_wstring(curDepth) << L": " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;
-            }
-            */
             return ml.size();
         }
         else {
             for (Move mv : ml) {
-                /*
-                string uci=mv.toUci();
-                wcout << L"Depth: " << to_wstring(curDepth) << L": " << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << endl;
-                */
                 Board new_brd=brd.rawApply(mv,true); // sanity checks on
-                /*
-                brd.printPos(&new_brd,-1);
-                */
-                // moveHistory.push_back(mv);
                 cnt+=calcPerft(new_brd, depth, curDepth+1, moveHistory);
             }
             return cnt;
@@ -1549,7 +1517,7 @@ int perftTests() {
     Term::clr();
     for (PerftData perftSample : perftData) {
         //PerftData perftSample = perftData[20];
-        wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(perftSample.name) << endl;
+        wcout << stringenc(perftSample.name) << endl;
         Board brd(perftSample.fen);
         brd.printPos(&brd,-1);
         brd.printInfo();
@@ -1586,7 +1554,7 @@ vector<Board::Move> doShowMoves(Board brd) {
     vector<Board::Move> ml(brd.moveList(true));
     for (Board::Move mv : ml) {
         string uci=mv.toUciWithEval();
-        wcout << std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(uci) << L" ";
+        wcout << stringenc(uci) << L" ";
     }
     wcout << endl;
     return ml;
@@ -1600,7 +1568,7 @@ void miniGame() {
     for (int i=0; i<50; i++) {
         //ml=doShowMoves(brd);
         wcout << endl;
-        brd.printPos(&brd,-1);
+        //brd.printPos(&brd,-1);
         vector<Board::Move> ml(brd.searchBestMove(brd,5));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
@@ -1618,12 +1586,12 @@ int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "");
 #endif
 
-    miniGame();   
+    // miniGame();   
     
-    /*
+    
     int err=perftTests();
     exit(err);
-    */
+    
    return 0;
 
 }
