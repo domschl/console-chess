@@ -492,17 +492,17 @@ struct Board {
                 pl.push_back(pos-9);
             }
         }
-        char knightMoves[]{21, -21, 19, -19, 8, 12, -8, -12};
-        char bishopMoves[]{11, -11, 9, -9};
-        char rookMoves[]{10, -10, 1, -1};
-        char kingQueenMoves[]{11, -11, 9, -9, 10, -10, 1, -1};
-        for (char kn : knightMoves) {
+        signed char knightMoves[]{21, -21, 19, -19, 8, 12, -8, -12};
+        signed char bishopMoves[]{11, -11, 9, -9};
+        signed char rookMoves[]{10, -10, 1, -1};
+        signed char kingQueenMoves[]{11, -11, 9, -9, 10, -10, 1, -1};
+        for (signed char kn : knightMoves) {
             if (field[pos+kn]==(PieceType::Knight | attColor)) pl.push_back(pos+kn);
         }
-        for (char km : kingQueenMoves) {
+        for (signed char km : kingQueenMoves) {
             if (field[pos+km]==(PieceType::King | attColor)) pl.push_back(pos+km);
         }
-        for (char bm : bishopMoves) {
+        for (signed char bm : bishopMoves) {
             unsigned char pn=pos+bm;
             if (field[pn]==0xff) continue;
             while (true) {
@@ -515,7 +515,7 @@ struct Board {
                 if (field[pn]==0xff) break;
             }
         }
-        for (char bm : rookMoves) {
+        for (signed char bm : rookMoves) {
             unsigned char pn=pos+bm;
             if (field[pn]==0xff) continue;
             while (true) {
@@ -566,9 +566,9 @@ struct Board {
         int x,y,xt,yt;
         int dy,promoteRank,startPawn;
         const PieceType pp[]={Knight, Bishop, Rook, Queen};
-        const char pawnCapW[]={9,11};
-        const char pawnCapB[]={-9,-11};
-        const char *pawnCap;
+        const signed char pawnCapW[]={9,11};
+        const signed char pawnCapB[]={-9,-11};
+        const signed char *pawnCap;
         const unsigned char c_a1=toPos("a1");
         const unsigned char c_b1=toPos("b1");
         const unsigned char c_c1=toPos("c1");
@@ -585,10 +585,10 @@ struct Board {
         const unsigned char c_f8=toPos("f8");
         const unsigned char c_g8=toPos("g8");
         const unsigned char c_h8=toPos("h8");
-        const char kingQueenMoves[]={-1,-11,-10,-9,1,11,10,9};
-        const char knightMoves[]={8,12,21,19,-8,-12,-21,-19};
-        const char bishopMoves[]={-9,-11,9,11};
-        const char rookMoves[]={-1,-10,1,10};
+        const signed char kingQueenMoves[]={-1,-11,-10,-9,1,11,10,9};
+        const signed char knightMoves[]={8,12,21,19,-8,-12,-21,-19};
+        const signed char bishopMoves[]={-9,-11,9,11};
+        const signed char rookMoves[]={-1,-10,1,10};
         unsigned char f,to;
         Color attColor;
         if (activeColor==Color::White) attColor=Black;
@@ -750,9 +750,9 @@ vector<Move> rawCaptureList() {
         int x,y,xt,yt;
         int dy,promoteRank,startPawn;
         const PieceType pp[]={Knight, Bishop, Rook, Queen};
-        const char pawnCapW[]={9,11};
-        const char pawnCapB[]={-9,-11};
-        const char *pawnCap;
+        const signed char pawnCapW[]={9,11};
+        const signed char pawnCapB[]={-9,-11};
+        const signed char *pawnCap;
         const unsigned char c_a1=toPos("a1");
         const unsigned char c_b1=toPos("b1");
         const unsigned char c_c1=toPos("c1");
@@ -769,10 +769,10 @@ vector<Move> rawCaptureList() {
         const unsigned char c_f8=toPos("f8");
         const unsigned char c_g8=toPos("g8");
         const unsigned char c_h8=toPos("h8");
-        const char kingQueenMoves[]={-1,-11,-10,-9,1,11,10,9};
-        const char knightMoves[]={8,12,21,19,-8,-12,-21,-19};
-        const char bishopMoves[]={-9,-11,9,11};
-        const char rookMoves[]={-1,-10,1,10};
+        const signed char kingQueenMoves[]={-1,-11,-10,-9,1,11,10,9};
+        const signed char knightMoves[]={8,12,21,19,-8,-12,-21,-19};
+        const signed char bishopMoves[]={-9,-11,9,11};
+        const signed char rookMoves[]={-1,-10,1,10};
         unsigned char f,to;
         Color attColor;
         if (activeColor==Color::White) attColor=Black;
