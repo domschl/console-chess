@@ -554,14 +554,7 @@ struct Board {
         unsigned char kpos=kingsPos(col);
         vector<unsigned char> pl=attackers(kpos, col);
         if (pl.size()==0) return false;
-        else {/*
-            wcout << L"King at " << stringenc(pos2string(kpos)) << L" attacked by ";
-            for (unsigned char p : pl) {
-                wcout << stringenc(pos2string(p)) << L" ";
-            }
-            wcout << endl; */
-            return true;
-        }
+        else return true;
     }
 
     vector<Move> rawMoveList() {
@@ -1350,6 +1343,7 @@ vector<Move> rawCaptureList() {
     int minimax(Board brd, int depth, vector<Move>&principal, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
         bool gameOver=false;
         int maxEval,minEval,eval,sil;
+        int maxCaptures = -8;
         Board new_brd;
         vector<Move> ml(brd.moveList(true));
         if (depth>maxD) maxD=depth;
@@ -1361,7 +1355,7 @@ vector<Move> rawCaptureList() {
             if (brd.activeColor==White) return MIN_EVAL;
             else return MAX_EVAL;
         }
-        if ((depth<=0) && ((brd.field[ml[0].to]==0) || depth < -3)) {
+        if ((depth<=0) && ((brd.field[ml[0].to]==0) || depth < maxCaptures)) {
             return ml[0].eval;
         }
         sil=2;
@@ -1372,7 +1366,7 @@ vector<Move> rawCaptureList() {
             maxEval=MIN_EVAL;
             for (Move mv : ml) {
                 if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
-                if (sil>0) --sil;
+                if (sil>0 && brd.field[mv.to]==0) --sil;
                 new_brd=brd.rawApply(mv);
                 eval = new_brd.minimax(new_brd, depth-1, principal, Black, alpha, beta, curDepth+1, maxD);
                 if (eval>maxEval) {
@@ -1387,7 +1381,7 @@ vector<Move> rawCaptureList() {
             minEval=MAX_EVAL;
             for (Move mv : ml) {
                 if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
-                if (sil>0) --sil;
+                if (sil>0 && brd.field[mv.to]==0) --sil;
                 new_brd=brd.rawApply(mv);
                 eval = minimax(new_brd, depth-1, principal, White, alpha, beta, curDepth+1, maxD);
                 if (eval<minEval) {
@@ -1419,8 +1413,8 @@ vector<Move> rawCaptureList() {
         Board newBoard;
         int bestEval, eval, vars;
 
-        wcout << L"Best at depth: " << 0 << L" " << stringenc(ml[0].toUciWithEval()) << endl;
-        wcout << L"    Best at depth: " << 0 << L", ";
+        /*
+        wcout << L"Best at depth: " << 0 << L", ";
         int maxAlternatives=6;
         if (ml.size()>maxAlternatives) vars=maxAlternatives;
         else vars=ml.size();
@@ -1428,6 +1422,7 @@ vector<Move> rawCaptureList() {
             wcout << b+1 << ".:" << stringenc(ml[b].toUciWithEval()) << L", ";
         }
         wcout << endl;
+        */
         for (int d=1; d<depth; d++) {
             if (brd.activeColor==White) bestEval=MIN_EVAL;
             else bestEval=MAX_EVAL;
@@ -1439,23 +1434,43 @@ vector<Move> rawCaptureList() {
                 mv.eval=eval;
                 vml.push_back(mv);
                 if (brd.activeColor==White) {
-                    if (eval>bestEval) best_principal=principal;
-                    bestEval=eval;
+                    if (eval>bestEval) {
+                        best_principal=principal;
+                        bestEval=eval;
+
+                        wcout << " Current Wline: ";
+                        for (Move mv : best_principal) {
+                            wcout << stringenc(mv.toUciWithEval()) << " ";
+                        }
+                        wcout << endl;
+                        //brd.printPos(&newBoard,-1);
+                    }
                 } else {
-                    if (eval<bestEval) best_principal=principal;
-                    bestEval=eval;
+                    if (eval<bestEval) {
+                        best_principal=principal;
+                        bestEval=eval;
+
+                        wcout << " Current Bline: ";
+                        for (Move mv : best_principal) {
+                            wcout << stringenc(mv.toUciWithEval()) << " ";
+                        }
+                        wcout << endl;
+                        //brd.printPos(&newBoard,-1);
+                    }
                 }
             }
             if (brd.activeColor==White) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
             else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
             ml=vml;
-            wcout << L"    Best at depth: " << d << L", ";
+            /*
+            wcout << L"Best at depth: " << d << L", ";
             if (ml.size()>maxAlternatives) vars=maxAlternatives;
             else vars=ml.size();
             for (int b=0; b<vars; b++) {
                 wcout << b+1 << ".:" << stringenc(ml[b].toUciWithEval()) << L", ";
             }
             wcout << endl;
+            */
             wcout << "Best line: ";
             for (Move mv : best_principal) {
                 wcout << stringenc(mv.toUciWithEval()) << " ";
@@ -1590,13 +1605,15 @@ int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "");
     std::wcout.imbue(std::locale("en_US.UTF-8"));
 #endif
+    bool doPerf=false;
+    if (argc>1) {
+        if (!strcmp(argv[1],"-p")) doPerf=true;
+    }
 
-    //miniGame();   
-    
-    
+    if (!doPerf) miniGame();   
+    else {
      int err=perftTests();
      exit(err);
-    
+    }
    return 0;
-
 }
