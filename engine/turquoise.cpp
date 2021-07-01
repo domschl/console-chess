@@ -54,24 +54,27 @@ class Term {
         int c = col + 30;
         int b = bk + 40;
         char s[256];
-        sprintf(s, "%c[%d;%dm", esc, c, b);
-        wcout << s;
+        //sprintf(s, "%c[%d;%dm", esc, c, b);
+        sprintf(s, "\033[%d;%dm", c, b);
+        wcout << stringenc(s);
     }
 
     // Clear screen
     static void clr() {
         unsigned char esc = 27;
         char s[256];
-        sprintf(s, "%c[%dJ", esc, 2);
-        wcout << s;
+        //sprintf(s, "%c[%dJ", esc, 2);
+        sprintf(s, "\033[%dJ", 2);
+        wcout << stringenc(s);
     }
 
     // Cursor goto(line,column)
     static void got(int cy, int cx) {
         unsigned char esc = 27;
         char s[256];
-        sprintf(s, "%c[%d;%dH", esc, cy + 1, cx + 1);
-        wcout << s;
+        //sprintf(s, "%c[%d;%dH", esc, cy + 1, cx + 1);
+        sprintf(s, "\033[%d;%dH", cy + 1, cx + 1);
+        wcout << stringenc(s);
     }
 };
 
@@ -1568,7 +1571,7 @@ void miniGame() {
     for (int i=0; i<50; i++) {
         //ml=doShowMoves(brd);
         wcout << endl;
-        //brd.printPos(&brd,-1);
+        brd.printPos(&brd,-1);
         vector<Board::Move> ml(brd.searchBestMove(brd,5));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
@@ -1583,14 +1586,16 @@ int main(int argc, char *argv[]) {
 #ifndef __APPLE__
     std::setlocale(LC_ALL, "");
 #else
+    wcout << "Apple" << endl;
     setlocale(LC_ALL, "");
+    std::wcout.imbue(std::locale("en_US.UTF-8"));
 #endif
 
-    // miniGame();   
+    //miniGame();   
     
     
-    int err=perftTests();
-    exit(err);
+     int err=perftTests();
+     exit(err);
     
    return 0;
 
