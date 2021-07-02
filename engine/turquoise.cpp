@@ -90,6 +90,7 @@ struct Board {
     Color activeColor;
     unsigned int moveNumber;
     unsigned char hasCastled;
+    int maxDynamicDepth;
 
     Board() {
         startPosition();
@@ -102,6 +103,7 @@ struct Board {
         epPos=0;
         fiftyMoves=0;
         moveNumber=0;
+        maxDynamicDepth=0;
         vector<string> parts=split(fen,' ');
         if (parts.size() < 3) {
             if (verbose) wcout << L"Missing parts of fen, invalid!" << endl;
@@ -256,6 +258,7 @@ struct Board {
         epPos=0;
         fiftyMoves=0;
         moveNumber=1;
+        maxDynamicDepth=0;
         for (int i=0; i<8; i++) {
             field[toPos(0,i)]=startFigs[i]+Color::White;
             field[toPos(7,i)]=startFigs[i]+Color::Black;
@@ -277,6 +280,7 @@ struct Board {
         fiftyMoves=0;
         moveNumber=0;
         hasCastled=0;
+        maxDynamicDepth=0;
     }
 
     static inline unsigned char toPos(unsigned char y, unsigned char x) {
@@ -1338,14 +1342,16 @@ vector<Move> rawCaptureList() {
         evl=pieceEvl*3+kingEvl*2+moveEvl*4; // *8+attEvl/2+defEvl;
         return evl;
     }
-
-
+    
     int minimax(Board brd, int depth, vector<Move>&principal, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
         bool gameOver=false;
         int maxEval,minEval,eval,sil;
         int maxCaptures = -8;
         Board new_brd;
         vector<Move> ml(brd.moveList(true));
+
+        //printf("(%d,%d,%d) ",depth,curDepth,maxDynamicDepth);
+        
         if (depth>maxD) maxD=depth;
         if (ml.size()==0) {
             gameOver=true;
@@ -1358,6 +1364,7 @@ vector<Move> rawCaptureList() {
         if ((depth<=0) && ((brd.field[ml[0].to]==0) || depth < maxCaptures)) {
             return ml[0].eval;
         }
+        if (curDepth>maxDynamicDepth) maxDynamicDepth=curDepth;
         sil=2;
         if (curDepth<maxD) {
             if (principal.size()<curDepth+1) principal.push_back(Move());
@@ -1423,14 +1430,21 @@ vector<Move> rawCaptureList() {
         }
         wcout << endl;
         */
+        int curMaxDynamicDepth;
         for (int d=1; d<depth; d++) {
+            curMaxDynamicDepth=0;
             if (brd.activeColor==White) bestEval=MIN_EVAL;
             else bestEval=MAX_EVAL;
             for (Move mv: ml) {
                 newBoard=brd.rawApply(mv);
+                newBoard.maxDynamicDepth=0;
                 principal.erase(principal.begin(),principal.end());
                 principal.push_back(mv);
                 eval=minimax(newBoard,d,principal, newBoard.activeColor);
+                if (newBoard.maxDynamicDepth>curMaxDynamicDepth) {
+                    curMaxDynamicDepth=maxDynamicDepth;
+                    printf("Depth %d, maxDynamicDepth: %d\n",d,curMaxDynamicDepth);
+                }
                 mv.eval=eval;
                 vml.push_back(mv);
                 if (brd.activeColor==White) {
