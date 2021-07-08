@@ -1450,6 +1450,8 @@ vector<Move> rawCaptureList() {
         wcout << endl;
     }
 
+    // https://de.wikipedia.org/wiki/Alpha-Beta-Suche
+    // negamax / alpha-beta
     int negamax(Board brd, int depth, vector<Move> &history, vector<Move> &principal, int col,
                 int alpha = MIN_EVAL, int beta = MAX_EVAL, int curDepth = 1, int maxD = 0) {
         bool gameOver=false;
