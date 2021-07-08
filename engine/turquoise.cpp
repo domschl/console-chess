@@ -1533,10 +1533,10 @@ vector<Move> rawCaptureList() {
         }
 
         if (col == White) {
-            endEval = MIN_EVAL;
+            endEval = alpha; // MIN_EVAL;
             nextCol = Black;
         } else {
-            endEval = MAX_EVAL;
+            endEval = beta; // MAX_EVAL;
             nextCol = White;
         }
         sil=1;
