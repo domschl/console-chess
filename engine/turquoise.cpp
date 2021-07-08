@@ -1574,7 +1574,7 @@ vector<Move> rawCaptureList() {
         return endEval;
     }
 
-    vector<Move> searchBestMove(Board brd, int depth, bool negamax=false) {
+    vector<Move> searchBestMove(Board brd, int depth, bool useNegamax=false) {
         vector<Move> ml(brd.moveList(true)), vml, best_principal, principal, history;
         Board newBoard;
         int bestEval, eval, vars;
@@ -1590,7 +1590,7 @@ vector<Move> rawCaptureList() {
                 //principal.push_back(mv);
                 history.erase(history.begin(),history.end());
                 history.push_back(mv);
-                if (negamax) {
+                if (useNegamax) {
                     eval = negamax(newBoard, d, history, principal, newBoard.activeColor);
                     mv.eval = eval;
                     vml.push_back(mv);
@@ -1613,7 +1613,7 @@ vector<Move> rawCaptureList() {
                     }
                 }
             }
-            if (brd.activeColor==White || negamax) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
+            if (brd.activeColor==White || useNegamax) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
             else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
             ml=vml;
             //wcout << "Move list, depth=" << d;
