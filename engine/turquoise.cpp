@@ -121,7 +121,6 @@ struct Board {
                     return;
                 }
                 char c=rows[7-y][i];
-        //wcout << to_wstring(i) << L" | " << to_wstring(x) << endl;
                 if (c>='1' && c<='8') {
                     for (int j=0; j<c-'0'; j++) ++x;
                 } else {
@@ -380,7 +379,8 @@ struct Board {
         Move(unsigned char from, unsigned char to, PieceType promote=Empty): from(from), to(to), promote(promote) {
         }
         // Copy constructor 
-        Move(const Move &mv) {from=mv.from; to=mv.to; promote=mv.promote; eval=mv.eval; } 
+        Move(const Move &mv) {from=mv.from; to=mv.to; promote=mv.promote; eval=mv.eval; }
+        
         // Decode uci and algebraic-notation strings to move [TODO: incomplete]
         Move(string alg, Board *brd=nullptr) {
             promote=Empty;
@@ -456,6 +456,7 @@ struct Board {
                 }
             }
         }
+        
         string toUci() {
             string uci=Board::pos2string(from)+"-"+pos2string(to);
             if (promote!=Empty) {
@@ -463,6 +464,7 @@ struct Board {
             }
             return uci;
         }
+        
         string toUciWithEval() {
             string uci=Board::pos2string(from)+"-"+pos2string(to);
             if (promote!=Empty) {
@@ -539,7 +541,6 @@ struct Board {
                 if (field[pn]==0xff) break;
             }
         }
-        // wcout << "Attackers: " << to_wstring(pl.size()) << endl;
         return pl;
     }
 
@@ -602,7 +603,6 @@ struct Board {
             if (!f) continue;
             if (f==0xff) continue;
             if (f & attColor) continue;
-            // wcout << L"Field: " << to_wstring(c) << endl;
             switch (field[c] & 0b00011100) {
                 case PieceType::Pawn:
                     pos2coord(c, &y, &x);
@@ -745,7 +745,6 @@ struct Board {
                     break;
             }
         }
-        // wcout << L"Move list size: " << to_wstring(ml.size()) << endl;
         return ml;
     }
 
@@ -786,7 +785,6 @@ vector<Move> rawCaptureList() {
             if (!f) continue;
             if (f==0xff) continue;
             if (f & attColor) continue;
-            // wcout << L"Field: " << to_wstring(c) << endl;
             switch (field[c] & 0b00011100) {
                 case PieceType::Pawn:
                     pos2coord(c, &y, &x);
@@ -801,25 +799,6 @@ vector<Move> rawCaptureList() {
                         promoteRank=7;
                         startPawn=1;
                     }
-                    /*
-                    to=c+dy;
-                    if (field[to]==Empty) {
-                        pos2coord(to,&yt,&xt);
-                        if (yt==promoteRank) {
-                            for (PieceType p: pp) {
-                                ml.push_back(Move(c,to,p));
-                            }
-                        } else {
-                            ml.push_back(Move(c,to,Empty));
-                            if (y==startPawn) {
-                                to+=dy;
-                                if (field[to]==Empty) {
-                                    ml.push_back(Move(c,to,Empty));
-                                }
-                            }
-                        }
-                    }
-                    */
                     for (int pci=0; pci<2; pci++) {
                         to=c+pawnCap[pci];
                         if (field[to]==0xff) continue;
@@ -836,43 +815,10 @@ vector<Move> rawCaptureList() {
                     }
                     break;
                 case PieceType::King:
-                    /*
-                    if (f & Color::Black) {
-                        if (castleRights & CastleRights::CBK) {
-                            if ((field[c_e8]==(King | Black)) && (field[c_f8]==0) && (field[c_g8]==0) && (field[c_h8]==(Rook | Black))) {
-                                if (!attacked(c_e8, activeColor) && !attacked(c_f8, activeColor) && !attacked(c_g8, activeColor)) {
-                                    ml.push_back(Move(c_e8, c_g8, Empty));
-                                }
-                            }
-                        }
-                        if (castleRights & CastleRights::CBQ) {
-                            if ((field[c_e8]==(King | Black)) && (field[c_d8]==0) && (field[c_c8]==0) && (field[c_b8]==0) && (field[c_a8]==(Rook | Black))) {
-                                if (!attacked(c_c8, activeColor) && !attacked(c_d8, activeColor) && !attacked(c_e8, activeColor)) {
-                                    ml.push_back(Move(c_e8, c_c8, Empty));
-                                }
-                            }
-                        }
-                    } else {
-                        if (castleRights & CastleRights::CWK) {
-                            if ((field[c_e1]==(King | White)) && (field[c_f1]==0) && (field[c_g1]==0) && (field[c_h1]==(Rook | White))) {
-                                if (!attacked(c_e1, activeColor) && !attacked(c_f1, activeColor) && !attacked(c_g1, activeColor)) {
-                                    ml.push_back(Move(c_e1, c_g1, Empty));
-                                }
-                            }
-                        }
-                        if (castleRights & CastleRights::CWQ) {
-                            if ((field[c_e1]==(King | White)) && (field[c_d1]==0) && (field[c_c1]==0) && (field[c_b1]==0) && (field[c_a1]==(Rook | White))) {
-                                if (!attacked(c_c1, activeColor) && !attacked(c_d1, activeColor) && !attacked(c_e1, activeColor)) {
-                                    ml.push_back(Move(c_e1, c_c1, Empty));
-                                }
-                            }
-                        }
-                    }
-                    */
                     for (int di=0; di<8; ++di) {
                         to=c+kingQueenMoves[di];
                         if (field[to]==0xff) continue;
-                        if (/*(field[to]==0) ||*/ (field[to]&attColor)) {
+                        if (field[to]&attColor) {
                             ml.push_back(Move(c,to,Empty));
                         }
                     }
@@ -881,7 +827,7 @@ vector<Move> rawCaptureList() {
                     for (int di=0; di<8; ++di) {
                         to=c+knightMoves[di];
                         if (field[to]==0xff) continue;
-                        if (/*(field[to]==0) ||*/ (field[to]&attColor)) {
+                        if (field[to]&attColor) {
                             ml.push_back(Move(c,to,Empty));
                         }
                     }
@@ -1074,7 +1020,6 @@ vector<Move> rawCaptureList() {
             if (brd.activeColor == White) brd.activeColor=Black;
             else brd.activeColor=White;
         }
-        // brd.printPos(&brd,-1);
         return brd;
     }
 
@@ -1104,26 +1049,6 @@ vector<Move> rawCaptureList() {
         return vml;
     }
 
-    /*
-    vector<Move> captureList(bool eval=false, bool relativeEval=false) {
-        vector<Move> ml=rawCaptureList();
-        vector<Move> vml;
-        for (auto m : ml) {
-            Board nbrd=rawApply(m);
-            if (!nbrd.inCheck(activeColor)) {
-                if (eval) {
-                    m.eval=nbrd.eval(relativeEval);
-                }
-                vml.push_back(m);
-            }
-        }
-        if (eval) {
-            if (activeColor==White || relativeEval) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
-            else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
-        }
-        return vml;
-    }
-    */
     unsigned long int calcPerft(Board brd, int depth, int curDepth=0, vector<Move> moveHistory={}) {
         vector<Move> ml=brd.moveList();
         unsigned long int cnt=0;
@@ -1139,124 +1064,6 @@ vector<Move> rawCaptureList() {
         }
     }
 
-    /*
-    int eval(bool relativeEval=false, bool verbose=false) {
-        Board brd=*this;
-        int val=0,attval,defval,mlval,pieceval;
-        int v1,v2;
-        int fTyp;
-        int pCol;
-        vector<unsigned char> atl,atlx;
-        vector<Move> ml;
-        unsigned char f;
-
-        //wcout << endl;
-        //printPos(&brd, -1);
-
-        int pieceVals[]={0,100,290,300,500,900,100000};
-        int attVals[]={12,10,10,10,15,20,30};
-        int defVals[]={10,5,10,10,5,2,3};
-
-        attval=0;
-        defval=0;
-        pieceval=0;
-        for (int c=21; c<99; c++) {
-            f=brd.field[c];
-            if (f==0xff) continue;
-            fTyp=brd.field[c]>>2;
-            pCol=brd.field[c]&3;
-
-            if (pCol & White) pieceval+=pieceVals[fTyp];
-            else pieceval-=pieceVals[fTyp];
-
-            switch (pCol) {
-                case Black:
-                case None:
-                    v1 = attackers(c, Black).size() * attVals[fTyp];
-                    v2 = attackers(c, White).size() * defVals[fTyp];
-                    break;
-                case White:
-                    v1 = attackers(c, Black).size() * defVals[fTyp];
-                    v2 = attackers(c, White).size() * attVals[fTyp];
-                    break;
-            } 
-            attval += v1;
-            defval += v2;
-        }
-        attval /= 20;
-        defval /= 20;
-
-
-        brd.activeColor=White;
-        ml=brd.rawMoveList();
-        mlval=ml.size();
-        brd.activeColor=Black;
-        ml=brd.rawMoveList();
-        mlval -=ml.size();
-
-        val = attval + defval + pieceval + mlval;
-        if (verbose) wcout << L"Val: " << to_wstring(val) << ", pieceval: " << to_wstring(pieceval) << ", attval: " << to_wstring(attval) << ", defval: " << to_wstring(defval) << ", mlval: " << to_wstring(mlval) << endl;
-        return val;
-    }
-    */
-
-    /*
-    int exchangeTree(Board brd, int depth, vector<Move>&history, vector<Move>&principal, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
-        bool gameOver=false;
-        int maxEval,minEval,eval,sil;
-        Board new_brd;
-        vector<Move> ml(brd.moveList(true));
-        if (depth>maxD) maxD=depth;
-        if (ml.size()==0) {
-            gameOver=true;
-        }
-        if (gameOver) { 
-            if (!brd.inCheck(brd.activeColor)) return 0;
-            if (brd.activeColor==White) return MIN_EVAL;
-            else return MAX_EVAL;
-        }
-        if ((depth<=0) && ((brd.field[ml[0].to]==0) || depth < -3)) {
-            return ml[0].eval;
-        }
-        sil=2;
-        if (curDepth<maxD) {
-            if (principal.size()<curDepth+1) principal.push_back(Move());
-        }
-        if (col==White) {
-            maxEval=MIN_EVAL;
-            for (Move mv : ml) {
-                if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
-                if (sil>0) --sil;
-                new_brd=brd.rawApply(mv);
-                eval = new_brd.minimax(new_brd, depth-1, history, principal, Black, alpha, beta, curDepth+1, maxD);
-                if (eval>maxEval) {
-                    maxEval=eval;
-                    if (curDepth<principal.size()) principal[curDepth]=mv;
-                }
-                if (eval>alpha) alpha=eval;
-                if (alpha>=beta) break;
-            }
-            return maxEval;
-        } else {
-            minEval=MAX_EVAL;
-            for (Move mv : ml) {
-                if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
-                if (sil>0) --sil;
-                new_brd=brd.rawApply(mv);
-                eval = minimax(new_brd, depth-1, history, principal, White, alpha, beta, curDepth+1, maxD);
-                if (eval<minEval) {
-                    minEval=eval;
-                    if (curDepth<principal.size()) principal[curDepth]=mv;
-                }
-                if (eval<beta) beta=eval;
-                if (beta<=alpha) break;
-            }
-            return minEval;
-        }
-    }
-*/
-    
-
     int eval(bool relativeEval=false, bool verbose=false) {
         Board brd=*this;
         int evl=0;
@@ -1268,33 +1075,6 @@ vector<Move> rawCaptureList() {
         unsigned char fig,figTyp,pos;
         Color figCol;
         int pieceVals[]={0,100,290,300,500,900,100000};
-        //int attVals[]={12,10,10,10,15,20,30};
-        //int defVals[]={11,5,10,10,5,2,3};
-        //                              attacked
-        //                        -  p  n  b  r  q  k
-        const int attMat[7][7]={{ 0, 0, 0, 0, 0, 0, 0},  // -
-                                {25, 0,25,25,30,30,50},  // p
-                                {10,10, 0, 0,25,30,40},  // n
-                                {10,10, 0, 0,25,30,40},  // b   attacker
-                                {10, 5, 5, 5, 0,25,30},  // r
-                                { 2, 2, 2, 2, 2, 0,15},  // q
-                                { 2, 4, 2, 2, 2, 2, 0},  // k
-                        };
-        //                             defended
-        //                        -  p  n  b  r  q  k
-        const int defMat[7][7]={{ 0, 0, 0, 0, 0, 0, 0},  // -
-                                {25,25,25,25, 5, 0, 0},  // p
-                                {10, 5, 5, 5, 5, 2, 0},  // n
-                                {10, 5, 5, 5, 5, 2, 0},  // b   defender
-                                {10, 5, 5, 5,20, 2, 0},  // r
-                                { 2, 2, 2, 2, 2, 0, 0},  // q
-                                { 2,10, 2, 2, 2, 2, 0},  // k
-                        };
-        
-        vector<unsigned char>attW,attB;
-        //unsigned char matrix[120];
-        //memset(matrix,0xff,120);
-        
         for (int fInd=21; fInd<99; fInd++) {
             fig=brd.field[fInd];
             if (fig==0xff) continue;
@@ -1320,30 +1100,6 @@ vector<Move> rawCaptureList() {
                 }
             }
         }
-        /*
-            attW=brd.attackers(fInd,figCol);
-            for (unsigned char pos : attW) {
-                int attackerTyp=brd.field[pos]>>2;
-                if (figCol==Black) {
-                    attEvl += attMat[attackerTyp][figTyp];  
-                } else {
-                    attEvl -= attMat[attackerTyp][figTyp];
-                }
-            }
-            Color dC=White;
-            if (figCol==White) dC=Black;
-            attB=brd.attackers(fInd,dC);
-            for (unsigned char pos : attB) {
-                int defenderTyp=brd.field[pos]>>2;
-                if (figCol==Black) {
-                    defEvl -= defMat[defenderTyp][figTyp];  
-                } else {
-                    defEvl += defMat[defenderTyp][figTyp];
-                }
-            }
-
-        }
-        */
         Board brdw(brd),brdb(brd);
         if (relativeEval) {
             brdb.activeColor=brd.activeColor;
@@ -1366,103 +1122,9 @@ vector<Move> rawCaptureList() {
         if (brd.hasCastled & Black) kingEvl -=80*sg; 
         //evl=pieceEvl*3+kingEvl*2+moveEvl*4; // *8+attEvl/2+defEvl;
         evl=moveEvl*4+pieceEvl*3; // XXX!
-        //if (relativeEval) {
-        //    if (brd.activeColor == Black)
-        //        evl = (-evl);
-        //}
         return evl;
     }
 
-    /*
-    int minimax(Board brd, int depth, vector<Move>&history, vector<Move>&principal, int col, int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
-        bool gameOver=false;
-        int maxEval,minEval,eval,sil;
-        int maxCaptures = 0;
-        Board new_brd;
-        vector<Move> ml(brd.moveList(true));
-        vector<Move> history_state;
-
-        //printf("(%d,%d) ",depth,curDepth);
-        
-        if (depth>maxD) maxD=depth;
-        if (ml.size()==0) {
-            gameOver=true;
-        }
-        if (gameOver) { 
-            if (!brd.inCheck(brd.activeColor)) return 0;
-            if (brd.activeColor==White) return MIN_EVAL;
-            else return MAX_EVAL;
-        }
-        if ((depth<=0)) { // && ((brd.field[ml[0].to]==0) || depth <= maxCaptures) ) {
-            return ml[0].eval;
-        }
-
-        //sil=2;
-
-        //if (curDepth<maxD) {
-        //    if (principal.size()<curDepth+1) principal.push_back(Move());
-        //}
-
-        //if (curDepth < 3) {
-        //    wcout << " Cur d=" << curDepth << "hlen=" << history.size() << ": ";
-        //    for (Move mv : history) {
-        //        wcout << stringenc(mv.toUciWithEval()) << " ";
-        //    }
-        //    wcout << endl;
-        //}
-        if (col==White) {
-            maxEval=MIN_EVAL;
-            for (Move mv : ml) {
-                //if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
-                //if (sil>0 && brd.field[mv.to]==0) --sil;
-                new_brd=brd.rawApply(mv);
-                history_state=history;
-                history.push_back(mv);
-                if (new_brd.activeColor != Black) {
-                    wcout << "Internal error active Black expected!" << endl;
-                    exit(-1);
-                }
-                eval = minimax(new_brd, depth-1, history, principal, Black, alpha, beta, curDepth+1, maxD);
-                if (eval>maxEval) {
-                    maxEval=eval;
-                    //if (eval<minEval) {
-                    // minEval=eval;
-                    principal=history;
-                }
-                history=history_state;
-                if (eval>alpha) alpha=eval;
-                if (alpha>=beta) break;
-            }
-            return maxEval;
-            //return minEval;
-        } else {
-            minEval=MAX_EVAL;
-            for (Move mv : ml) {
-                //if (depth<=0 && brd.field[mv.to]==0 && sil==0) continue;
-                //if (sil>0 && brd.field[mv.to]==0) --sil;
-                new_brd=brd.rawApply(mv);
-                history_state=history;
-                history.push_back(mv);
-                if (new_brd.activeColor != White) {
-                    wcout << "Internal error active White expected!" << endl;
-                    exit(-1);
-                }
-                eval = minimax(new_brd, depth-1, history, principal, White, alpha, beta, curDepth+1, maxD);
-                if (eval<minEval) {
-                    minEval=eval;
-                    //if (eval>maxEval) {
-                    //maxEval=eval;
-                    principal=history;
-                }
-                history=history_state;
-                if (eval<beta) beta=eval;
-                if (beta<=alpha) break;
-            }
-            return minEval;
-            //return maxEval;
-        }
-    }
-*/
     void printMoveList(vector<Move> &mv, const wchar_t *title) {
         wcout << title << ": ";
         for (Move m : mv) {
@@ -1519,71 +1181,6 @@ vector<Move> rawCaptureList() {
         return endEval;
     }
     
-    int minimax(Board brd, int depth, vector<Move>&history, vector<Move>&principal, int col,
-                int alpha=MIN_EVAL, int beta=MAX_EVAL, int curDepth=1, int maxD=0) {
-        bool gameOver=false;
-        int endEval,eval,nextCol;
-        int maxCaptures=-6;
-        Board new_brd;
-        vector<Move> ml(brd.moveList(true));
-        vector<Move> history_state;
-        int sil;
-
-        if (depth>maxD) maxD=depth;
-        if (ml.size()==0) {
-            gameOver=true;
-        }
-        if (gameOver) { 
-            if (!brd.inCheck(brd.activeColor)) return 0;
-            if (brd.activeColor==White) return MIN_EVAL;
-            else return MAX_EVAL;
-        }
-        if (depth<=0  && ((brd.field[ml[0].to]==0) || depth <= maxCaptures)) {
-            return ml[0].eval;
-        }
-
-        if (col == White) {
-            endEval = alpha; // MIN_EVAL;
-            nextCol = Black;
-        } else {
-            endEval = beta; // MAX_EVAL;
-            nextCol = White;
-        }
-        sil=1;
-        for (Move mv : ml) {
-            if (depth <= 0 && brd.field[ml[0].to] == 0) {
-                if (sil>0) --sil;
-                else break;
-            }
-            new_brd=brd.rawApply(mv);
-            history_state=history;
-            history.push_back(mv);
-            eval = minimax(new_brd, depth-1, history, principal, nextCol, alpha, beta, curDepth+1, maxD);
-            if (col == White) {
-                if (eval>endEval) {
-                    endEval=eval;
-                    if (curDepth==1) principal=history;
-                    //wcout << L"(" << eval << L") wd=[" << curDepth << L"] -> ";
-                    //printMoveList(principal,L"WH");
-                }
-                history=history_state;
-                if (endEval>alpha) alpha=endEval;
-                if (endEval>=beta) break;
-            } else {
-                if (eval<endEval) {
-                    endEval=eval;
-                    if (curDepth==1) principal=history;
-                    //wcout << L"(" << eval << L") bd=[" << curDepth << L"] -> ";
-                    //printMoveList(principal,L"BH");
-                }
-                history=history_state;
-                if (endEval<beta) beta=endEval;
-                if (endEval<=alpha) break;
-            }            
-        }
-        return endEval;
-    }
-
     vector<Move> searchBestMove(Board brd, int depth, bool useNegamax=false) {
         vector<Move> ml(brd.moveList(true,useNegamax)), vml, best_principal, principal, history;
         Board newBoard;
@@ -1597,7 +1194,6 @@ vector<Move> rawCaptureList() {
             for (Move mv: ml) {
                 newBoard=brd.rawApply(mv);
                 principal.erase(principal.begin(),principal.end());
-                //principal.push_back(mv);
                 history.erase(history.begin(),history.end());
                 history.push_back(mv);
                 if (useNegamax) {
@@ -1610,22 +1206,7 @@ vector<Move> rawCaptureList() {
                         printMoveList(best_principal, L" Current line");
                     }
                 } else {
-                    eval = minimax(newBoard, d, history, principal, newBoard.activeColor);
-                    mv.eval = eval;
-                    vml.push_back(mv);
-                    if (brd.activeColor == White) {
-                        if (eval > bestEval) {
-                            bestEval = eval;
-                            best_principal = principal;
-                            printMoveList(best_principal, L" Current Wline");
-                        }
-                    } else {
-                        if (eval < bestEval) {
-                            bestEval = eval;
-                            best_principal = principal;
-                            printMoveList(best_principal, L" Current Bline");
-                        }
-                    }
+                    wcout << L"Bad reference to minimax!" << endl;
                 }
             }
             if (brd.activeColor==White || useNegamax) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
@@ -1692,7 +1273,6 @@ int perftTests() {
     long start,end;
     Term::clr();
     for (PerftData perftSample : perftData) {
-        //PerftData perftSample = perftData[20];
         wcout << stringenc(perftSample.name) << endl;
         Board brd(perftSample.fen);
         brd.printPos(&brd,-1);
@@ -1742,12 +1322,10 @@ void miniGame() {
     Board brd(start_fen);
 
     for (int i=0; i<50; i++) {
-        //ml=doShowMoves(brd);
         wcout << endl;
         brd.printPos(&brd,-1);
         
         vector<Board::Move> ml(brd.searchBestMove(brd,5,true));
-        // vector<Board::Move> ml(brd.negamax(brd,5,history,principal,brd.activeColor));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
