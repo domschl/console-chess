@@ -1104,6 +1104,7 @@ vector<Move> rawCaptureList() {
         return vml;
     }
 
+    /*
     vector<Move> captureList(bool eval=false, bool relativeEval=false) {
         vector<Move> ml=rawCaptureList();
         vector<Move> vml;
@@ -1122,7 +1123,7 @@ vector<Move> rawCaptureList() {
         }
         return vml;
     }
-
+    */
     unsigned long int calcPerft(Board brd, int depth, int curDepth=0, vector<Move> moveHistory={}) {
         vector<Move> ml=brd.moveList();
         unsigned long int cnt=0;
@@ -1300,12 +1301,22 @@ vector<Move> rawCaptureList() {
             figTyp=brd.field[fInd]>>2;
             figCol=(Color)(brd.field[fInd]&3);
 
-            if (figCol == White) {
-                pieceEvl += pieceVals[figTyp];
-
-            } else {
-                if (figCol == Black) {
+            if (relativeEval) {
+                if (figCol == brd.activeColor) {
                     pieceEvl -= pieceVals[figTyp];
+                } else {
+                    if (figCol == invertColor(brd.activeColor)) {
+                        pieceEvl += pieceVals[figTyp];
+                    }
+                }
+            } else {
+                if (figCol == White) {
+                    pieceEvl += pieceVals[figTyp];
+
+                } else {
+                    if (figCol == Black) {
+                        pieceEvl -= pieceVals[figTyp];
+                    }
                 }
             }
         }
@@ -1334,21 +1345,31 @@ vector<Move> rawCaptureList() {
         }
         */
         Board brdw(brd),brdb(brd);
-        brdw.activeColor=White;
-        brdb.activeColor=Black;
-        moveEvl=brdw.moveList().size()-brdb.moveList().size();
-
-        if (brd.castleRights & CastleRights::CWK) kingEvl += 30; 
-        if (brd.castleRights & CastleRights::CWQ) kingEvl += 30; 
-        if (brd.castleRights & CastleRights::CBK) kingEvl += -30; 
-        if (brd.castleRights & CastleRights::CBQ) kingEvl += -30;
-        if (brd.hasCastled & White) kingEvl +=80; 
-        if (brd.hasCastled & Black) kingEvl -=80; 
-        evl=pieceEvl*3+kingEvl*2+moveEvl*4; // *8+attEvl/2+defEvl;
         if (relativeEval) {
-            if (brd.activeColor == Black)
-                evl = (-evl);
+            brdb.activeColor=brd.activeColor;
+            brdw.activeColor=invertColor(brd.activeColor);
+            moveEvl=brdw.moveList().size()-brdb.moveList().size();
+        } else {
+            brdw.activeColor=White;
+            brdb.activeColor=Black;
+            moveEvl=brdw.moveList().size()-brdb.moveList().size();
         }
+
+        int sg;
+        if (relativeEval && brd.activeColor==Black) sg=1;
+        else sg=-1;
+        if (brd.castleRights & CastleRights::CWK) kingEvl += 30*sg; 
+        if (brd.castleRights & CastleRights::CWQ) kingEvl += 30*sg; 
+        if (brd.castleRights & CastleRights::CBK) kingEvl += -30*sg; 
+        if (brd.castleRights & CastleRights::CBQ) kingEvl += -30*sg;
+        if (brd.hasCastled & White) kingEvl +=80*sg; 
+        if (brd.hasCastled & Black) kingEvl -=80*sg; 
+        //evl=pieceEvl*3+kingEvl*2+moveEvl*4; // *8+attEvl/2+defEvl;
+        evl=moveEvl*4+pieceEvl*3; // XXX!
+        //if (relativeEval) {
+        //    if (brd.activeColor == Black)
+        //        evl = (-evl);
+        //}
         return evl;
     }
 
@@ -1451,6 +1472,7 @@ vector<Move> rawCaptureList() {
     }
 
     // https://de.wikipedia.org/wiki/Alpha-Beta-Suche
+    // https://en.wikipedia.org/wiki/Negamax
     // negamax / alpha-beta
     int negamax(Board brd, int depth, vector<Move> &history, vector<Move> &principal, int col,
                 int alpha = MIN_EVAL, int beta = MAX_EVAL, int curDepth = 1, int maxD = 0) {
@@ -1470,43 +1492,29 @@ vector<Move> rawCaptureList() {
             if (!brd.inCheck(brd.activeColor)) return 0;
             return MIN_EVAL;
         }
-        if (depth<=0  && ((brd.field[ml[0].to]==0) || depth <= maxCaptures)) {
+        if (depth<=0) { //  && ((brd.field[ml[0].to]==0) || depth <= maxCaptures)) {
             return ml[0].eval;
         }
 
-        endEval = MIN_EVAL;
+        endEval = MIN_EVAL; //alpha;
         nextCol = invertColor(brd.activeColor);
-        sil = 1;
+        //sil = 1;
         for (Move mv : ml) {
-            if (depth <= 0 && brd.field[ml[0].to] == 0) {
-                if (sil>0) --sil;
-                else break;
-            }
+            //if (depth <= 0 && brd.field[ml[0].to] == 0) {
+            //    if (sil>0) --sil;
+            //    else break;
+            //}
             new_brd=brd.rawApply(mv);
             history_state=history;
             history.push_back(mv);
-            eval = negamax(new_brd, depth-1, history, principal, nextCol, alpha, beta, curDepth+1, maxD);
-            if (col == White) {
-                if (eval>endEval) {
-                    endEval=eval;
-                    if (curDepth==1) principal=history;
-                    //wcout << L"(" << eval << L") wd=[" << curDepth << L"] -> ";
-                    //printMoveList(principal,L"WH");
-                }
-                history=history_state;
-                if (endEval>alpha) alpha=endEval;
-                if (endEval>=beta) break;
-            } else {
-                if (eval<endEval) {
-                    endEval=eval;
-                    if (curDepth==1) principal=history;
-                    //wcout << L"(" << eval << L") bd=[" << curDepth << L"] -> ";
-                    //printMoveList(principal,L"BH");
-                }
-                history=history_state;
-                if (endEval<beta) beta=endEval;
-                if (endEval<=alpha) break;
+            eval = -negamax(new_brd, depth-1, history, principal, nextCol, -beta,-alpha, curDepth+1, maxD);
+            if (eval > endEval) {
+                endEval = eval;
+                principal=history;
             }
+            history=history_state;
+            if (endEval > alpha) alpha=endEval;
+            if (alpha >= beta) break;
         }
         return endEval;
     }
@@ -1577,14 +1585,14 @@ vector<Move> rawCaptureList() {
     }
 
     vector<Move> searchBestMove(Board brd, int depth, bool useNegamax=false) {
-        vector<Move> ml(brd.moveList(true)), vml, best_principal, principal, history;
+        vector<Move> ml(brd.moveList(true,useNegamax)), vml, best_principal, principal, history;
         Board newBoard;
         int bestEval, eval, vars;
 
         int curMaxDynamicDepth;
         for (int d=1; d<depth; d++) {
             curMaxDynamicDepth=0;
-            if (brd.activeColor==White) bestEval=MIN_EVAL;
+            if (brd.activeColor==White || useNegamax) bestEval=MIN_EVAL;
             else bestEval=MAX_EVAL;
             for (Move mv: ml) {
                 newBoard=brd.rawApply(mv);
@@ -1593,9 +1601,14 @@ vector<Move> rawCaptureList() {
                 history.erase(history.begin(),history.end());
                 history.push_back(mv);
                 if (useNegamax) {
-                    eval = negamax(newBoard, d, history, principal, newBoard.activeColor);
+                    eval = -negamax(newBoard, d, history, principal, newBoard.activeColor);
                     mv.eval = eval;
                     vml.push_back(mv);
+                    if (eval > bestEval) {
+                        bestEval = eval;
+                        best_principal = principal;
+                        printMoveList(best_principal, L" Current line");
+                    }
                 } else {
                     eval = minimax(newBoard, d, history, principal, newBoard.activeColor);
                     mv.eval = eval;
@@ -1618,8 +1631,8 @@ vector<Move> rawCaptureList() {
             if (brd.activeColor==White || useNegamax) std::sort(vml.begin(), vml.end(), &Board::move_white_sorter);
             else std::sort(vml.begin(), vml.end(), &Board::move_black_sorter);
             ml=vml;
-            //wcout << "Move list, depth=" << d;
-            //printMoveList(ml,L"");            
+            wcout << "Move list, depth=" << d;
+            printMoveList(ml,L"");            
             wcout << "Best line, depth=" << d;
             printMoveList(best_principal, L"");
             vml.erase(vml.begin(), vml.end());
@@ -1724,7 +1737,7 @@ vector<Board::Move> doShowMoves(Board brd) {
 }
 
 void miniGame() {
-    
+    vector<Board::Move> principal, history;
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     Board brd(start_fen);
 
@@ -1732,7 +1745,9 @@ void miniGame() {
         //ml=doShowMoves(brd);
         wcout << endl;
         brd.printPos(&brd,-1);
-        vector<Board::Move> ml(brd.searchBestMove(brd,3));
+        
+        vector<Board::Move> ml(brd.searchBestMove(brd,5,true));
+        // vector<Board::Move> ml(brd.negamax(brd,5,history,principal,brd.activeColor));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
