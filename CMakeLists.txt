@@ -62,7 +62,10 @@ if (WITH_OPENMP)
     endif()
 endif()
 
-add_subdirectory (engine)
 include_directories("engine")
 
+add_subdirectory (turquoise)
+add_subdirectory (perft)
+
 set_property(TARGET turquoise PROPERTY CXX_STANDARD 11)
+set_property(TARGET perft PROPERTY CXX_STANDARD 11)
