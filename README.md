@@ -39,6 +39,7 @@ Search for mate:
 turquoise/turquoise -f "3K4/3b4/4p2k/8/8/4R3/8/1R6 w -"
 ```
 
+![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/pos1.png)
 ```
 
 ```
