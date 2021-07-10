@@ -122,4 +122,5 @@ b5-b4, h6-c1, b6-b5, d6-d2, e4-f4, d2-d4#
 
 * Perft test suite at https://www.chessprogramming.org/Perft_Results
 * Perft tests at https://gist.github.com/peterellisjones/8c46c28141c162d1d8a0f0badbc9cff9
+* Indian problem https://www.chess.com/forum/view/more-puzzles/indian-problem-mate-in-4
 
