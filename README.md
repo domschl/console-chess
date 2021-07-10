@@ -40,9 +40,34 @@ turquoise/turquoise -f "3K4/3b4/4p2k/8/8/4R3/8/1R6 w -"
 ```
 
 ![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/pos1.png)
-```
 
 ```
+Best line, depth=1/6, nodes=949: d8-d7 (3600) h6-g6 (-3600)
+Best line, depth=2/9, nodes=5,423: d8-d7 (4125) h6-g6 (-3600)
+Best line, depth=3/11, nodes=48,428: d8-d7 (4125) h6-g6 (-3600)
+Best line, depth=4/10, nodes=62,812: b1-g1 (4122) d7-a4 (-2400) g1-g4 (2400) a4-e8 (-2400)
+b1-g1 (2147483645)
+
+Best line, depth=1/5, nodes=386: e6-e5 (-2400) d8-d7 (3600)
+Best line, depth=2/7, nodes=2,450: d7-e8 (-3707) d8-e8 (3600)
+Best line, depth=3/9, nodes=20,098: d7-e8 (-3707) d8-e8 (3600)
+d7-e8 (-2147483645)
+
+Best line, depth=1/6, nodes=1,391: d8-e8 (3600) h6-h5 (-3600)
+Best line, depth=2/6, nodes=1,497:
+d8-e8 (2147483645)
+
+Best line, depth=1/5, nodes=129:
+e6-e5 (-2147483645)
+
+Best line, depth=1/6, nodes=317:
+e3-h3 (2147483645)
+
+Best line, depth=1/0, nodes=0:
+Game over!
+```
+
+![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/pos1.png)
 
 ## History
 
