@@ -354,7 +354,7 @@ struct Board {
             for (cx = 0; cx < 8; cx++) {
                 f = brd->field[toPos(cy, cx)];
                 cl = (cx + cy) % 2;
-                if (cl)
+                if (!cl)
                     Term::cc(7, 0);
                 else
                     Term::cc(0, 7);
@@ -1408,6 +1408,8 @@ struct Board {
                 if (eval > bestEval) {
                     bestEval = eval;
                     best_principal = principal;
+                    if (bestEval >= -MIN_EVAL)
+                        break;
                     //printMoveList(best_principal, L" Current line");
                 }
             }
@@ -1418,8 +1420,10 @@ struct Board {
             wcout << "Best line, depth=" << d << L"/" << curMaxDynamicDepth << L", nodes=" << nodes;
             printMoveList(best_principal, L"");
             vml.erase(vml.begin(), vml.end());
-            if (bestEval==MIN_EVAL || bestEval==MAX_EVAL)
+            if (bestEval<=MIN_EVAL || bestEval>=-MIN_EVAL) {
+                // wcout << L"Search exhausted" << endl;
                 break;
+            }
         }
         return ml;
     }
