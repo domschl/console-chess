@@ -414,14 +414,18 @@ struct Board {
         unsigned char to;
         PieceType promote;
         int eval;
+        bool isCheck;
         Move() {
             from = 0;
             to = 0;
             promote = Empty;
             eval = INVALID_EVAL;
+            isCheck = false;
         }
         Move(unsigned char from, unsigned char to, PieceType promote = Empty)
             : from(from), to(to), promote(promote) {
+            eval=INVALID_EVAL;
+            isCheck=false;
         }
         // Copy constructor
         Move(const Move &mv) {
@@ -429,11 +433,13 @@ struct Board {
             to = mv.to;
             promote = mv.promote;
             eval = mv.eval;
+            isCheck = mv.isCheck;
         }
 
         // Decode uci and algebraic-notation strings to move [TODO: incomplete]
         Move(string alg, Board *brd = nullptr) {
             promote = Empty;
+            isCheck = false;
             from = 0;
             to = 0;
             eval = INVALID_EVAL;
@@ -648,24 +654,24 @@ struct Board {
         static const signed char pawnCapB[] = {-9, -11};
         static const unsigned char c_a1 = toPos("a1");
         static const unsigned char c_b1 = toPos("b1");
-        const unsigned char c_c1 = toPos("c1");
-        const unsigned char c_d1 = toPos("d1");
-        const unsigned char c_e1 = toPos("e1");
-        const unsigned char c_f1 = toPos("f1");
-        const unsigned char c_g1 = toPos("g1");
-        const unsigned char c_h1 = toPos("h1");
-        const unsigned char c_a8 = toPos("a8");
-        const unsigned char c_b8 = toPos("b8");
-        const unsigned char c_c8 = toPos("c8");
-        const unsigned char c_d8 = toPos("d8");
-        const unsigned char c_e8 = toPos("e8");
-        const unsigned char c_f8 = toPos("f8");
-        const unsigned char c_g8 = toPos("g8");
-        const unsigned char c_h8 = toPos("h8");
-        const signed char kingQueenMoves[] = {-1, -11, -10, -9, 1, 11, 10, 9};
-        const signed char knightMoves[] = {8, 12, 21, 19, -8, -12, -21, -19};
-        const signed char bishopMoves[] = {-9, -11, 9, 11};
-        const signed char rookMoves[] = {-1, -10, 1, 10};
+        static const unsigned char c_c1 = toPos("c1");
+        static const unsigned char c_d1 = toPos("d1");
+        static const unsigned char c_e1 = toPos("e1");
+        static const unsigned char c_f1 = toPos("f1");
+        static const unsigned char c_g1 = toPos("g1");
+        static const unsigned char c_h1 = toPos("h1");
+        static const unsigned char c_a8 = toPos("a8");
+        static const unsigned char c_b8 = toPos("b8");
+        static const unsigned char c_c8 = toPos("c8");
+        static const unsigned char c_d8 = toPos("d8");
+        static const unsigned char c_e8 = toPos("e8");
+        static const unsigned char c_f8 = toPos("f8");
+        static const unsigned char c_g8 = toPos("g8");
+        static const unsigned char c_h8 = toPos("h8");
+        static const signed char kingQueenMoves[] = {-1, -11, -10, -9, 1, 11, 10, 9};
+        static const signed char knightMoves[] = {8, 12, 21, 19, -8, -12, -21, -19};
+        static const signed char bishopMoves[] = {-9, -11, 9, 11};
+        static const signed char rookMoves[] = {-1, -10, 1, 10};
         const signed char *pawnCap;
         unsigned char f, to;
         Color attColor;
@@ -1412,6 +1418,8 @@ struct Board {
             wcout << "Best line, depth=" << d << L"/" << curMaxDynamicDepth << L", nodes=" << nodes;
             printMoveList(best_principal, L"");
             vml.erase(vml.begin(), vml.end());
+            if (bestEval==MIN_EVAL || bestEval==MAX_EVAL)
+                break;
         }
         return ml;
     }
