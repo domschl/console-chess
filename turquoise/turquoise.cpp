@@ -13,9 +13,10 @@ vector<Board::Move> doShowMoves(Board brd) {
     return ml;
 }
 */
-void miniAutoGame() {
+void miniAutoGame(string fen="") {
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    Board brd(start_fen);
+    if (fen=="") fen=start_fen;
+    Board brd(fen);
 
     for (int i=0; i<50; i++) {
         wcout << endl;
@@ -54,7 +55,7 @@ void miniGame() {
             wcout << L"Invalid move!" << endl;
             continue;
         }
-        vector<Board::Move> ml(Board::searchBestMove(brd,6));
+        vector<Board::Move> ml(Board::searchBestMove(brd,4));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
@@ -74,12 +75,19 @@ int main(int argc, char *argv[]) {
     std::wcout.imbue(std::locale("en_US.UTF-8"));
 #endif
     bool doAuto = false;
+    string fen="";
     if (argc > 1) {
         if (!strcmp(argv[1], "-a"))
             doAuto = true;
     }
+    if (argc > 2) {
+        if (!strcmp(argv[1], "-f")) {
+            doAuto=true;
+            fen=argv[2];
+        }
+    }
     if (doAuto)
-        miniAutoGame();
+        miniAutoGame(fen);
     else
         miniGame();
     return 0;

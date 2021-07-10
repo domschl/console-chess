@@ -1304,9 +1304,11 @@ struct Board {
         int maxCaptures = -48;
         int origAlpha, origBeta;
         Board new_brd;
-        vector<Move> ml(brd.moveList(true));  // negamax relative eval
+        vector<Move> ml(brd.moveList(true, false));  // eval, slow
         vector<Move> history_state,hist_scr;
         int sil=0;
+        bool isCheck=false;
+        int newDepth;
 
         //wcout << L"D=" << curDepth << L": ";
         //printMoveList(ml, L"ML");
@@ -1319,12 +1321,13 @@ struct Board {
         if (ml.size() == 0) {
             gameOver = true;
         }
+        isCheck=brd.inCheck(brd.activeColor);
         if (gameOver) {
-            if (!brd.inCheck(brd.activeColor))
+            if (!isCheck)
                 return 0;
             return MIN_EVAL;
         }
-        if (depth <= 0 && ((brd.field[ml[0].to]==0 || siled) || depth <= maxCaptures)) {
+        if (!isCheck && depth <= 0 && ((brd.field[ml[0].to]==0 || siled) || depth <= maxCaptures)) {
             // if (brd.activeColor==White)
             //if ((curDepth+1)%2)
             //    return ml[0].eval;
@@ -1344,13 +1347,20 @@ struct Board {
                 if (sil > 0) {
                     --sil;
                     siled=true;
-                } else
-                    break;
+                } else {
+                    if (!isCheck)
+                        break;
+                }
             }
             new_brd = brd.rawApply(mv);
             history_state = history;
             history.push_back(mv);
-            eval = -negamax(new_brd, depth - 1, history, principal, nextCol, pNodes, pCurDynDepth, -beta, -alpha,
+            if (isCheck) {
+                newDepth=depth;
+            } else {
+                newDepth=depth-1;
+            }
+            eval = -negamax(new_brd, newDepth, history, principal, nextCol, pNodes, pCurDynDepth, -beta, -alpha,
                             curDepth + 1, maxD, siled);
             if (eval > endEval) {
                 endEval = eval;
@@ -1372,7 +1382,7 @@ struct Board {
     static vector<Move> searchBestMove(Board brd, int depth) {
         vector<Move> ml(brd.moveList(true, false)), vml, best_principal, principal, history;
         Board newBoard;
-        int bestEval, eval, vars;
+        int bestEval, eval;
 
         int curMaxDynamicDepth;
         int nodes=0;
