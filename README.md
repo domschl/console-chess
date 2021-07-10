@@ -18,14 +18,36 @@ cmake ..
 make
 ```
 
-Run `perft` tests with:
+## `perft` test-suite
 
-
+Run all tests:
 ```
 perft/perft
 ```
 
-Play simple game:
+This verifies with a number of positions that have been proven to be tricky with engines,
+if the move generator works according to all chess rules.
+
+The number of generated moves at a given depth is compared to a reference value.
+
+Since all tests pass, there is a very high probability that the move generator is ok.
+
+Example:
+![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/strangebugs.png)
+```
+Active: White
+Castle-rights: White-King White-Queen
+No enpassant
+Fifty-move-state: 1
+Move-number: 8
+Depth: 1 2 3 4 2103487 nodes, 8867 knps 5 89941194 nodes, 11261 knps
+```
+130 tests later:
+```
+OK: 130 Error: 0
+```
+
+## Play simple game:
 
 ```
 turquoise/turquoise
@@ -72,3 +94,9 @@ Game over!
 ## History
 
 * 2021-07-10: Replaced old console chess with working version of turquoise test engine
+
+## References
+
+* Perft test suite at https://www.chessprogramming.org/Perft_Results
+* Perft tests at https://gist.github.com/peterellisjones/8c46c28141c162d1d8a0f0badbc9cff9
+
