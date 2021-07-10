@@ -67,7 +67,7 @@ Best line, depth=1/0, nodes=0:
 Game over!
 ```
 
-![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/pos1.png)
+![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/pos2.png)
 
 ## History
 
