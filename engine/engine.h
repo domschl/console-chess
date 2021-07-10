@@ -354,7 +354,7 @@ struct Board {
             for (cx = 0; cx < 8; cx++) {
                 f = brd->field[toPos(cy, cx)];
                 cl = (cx + cy) % 2;
-                if (!cl)
+                if (cl)
                     Term::cc(7, 0);
                 else
                     Term::cc(0, 7);
