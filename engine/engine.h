@@ -643,12 +643,11 @@ struct Board {
         vector<Move> ml;
         int x, y, xt, yt;
         int dy, promoteRank, startPawn;
-        const PieceType pp[] = {Knight, Bishop, Rook, Queen};
-        const signed char pawnCapW[] = {9, 11};
-        const signed char pawnCapB[] = {-9, -11};
-        const signed char *pawnCap;
-        const unsigned char c_a1 = toPos("a1");
-        const unsigned char c_b1 = toPos("b1");
+        static const PieceType pp[] = {Knight, Bishop, Rook, Queen};
+        static const signed char pawnCapW[] = {9, 11};
+        static const signed char pawnCapB[] = {-9, -11};
+        static const unsigned char c_a1 = toPos("a1");
+        static const unsigned char c_b1 = toPos("b1");
         const unsigned char c_c1 = toPos("c1");
         const unsigned char c_d1 = toPos("d1");
         const unsigned char c_e1 = toPos("e1");
@@ -667,6 +666,7 @@ struct Board {
         const signed char knightMoves[] = {8, 12, 21, 19, -8, -12, -21, -19};
         const signed char bishopMoves[] = {-9, -11, 9, 11};
         const signed char rookMoves[] = {-1, -10, 1, 10};
+        const signed char *pawnCap;
         unsigned char f, to;
         Color attColor;
         if (activeColor == Color::White)
@@ -1304,7 +1304,7 @@ struct Board {
         int maxCaptures = -48;
         int origAlpha, origBeta;
         Board new_brd;
-        vector<Move> ml(brd.moveList(true, false));  // eval, slow
+        vector<Move> ml(brd.moveList(true, true));  // eval, speed
         vector<Move> history_state,hist_scr;
         int sil=0;
         bool isCheck=false;
@@ -1379,8 +1379,8 @@ struct Board {
         return endEval;
     }
 
-    static vector<Move> searchBestMove(Board brd, int depth) {
-        vector<Move> ml(brd.moveList(true, false)), vml, best_principal, principal, history;
+    static vector<Move> searchBestMove(Board brd, int depth, bool fastSearch=false) {
+        vector<Move> ml(brd.moveList(true, fastSearch)), vml, best_principal, principal, history;
         Board newBoard;
         int bestEval, eval;
 

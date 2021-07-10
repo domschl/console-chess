@@ -15,14 +15,21 @@ vector<Board::Move> doShowMoves(Board brd) {
 */
 void miniAutoGame(string fen="") {
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    if (fen=="") fen=start_fen;
+    int depth;
+    
+    if (fen=="") {
+        fen=start_fen;
+        depth=4;
+    } else {
+        depth = 8;
+    }
     Board brd(fen);
 
     for (int i=0; i<50; i++) {
         wcout << endl;
         brd.printPos(&brd,-1);
         
-        vector<Board::Move> ml(Board::searchBestMove(brd,3));
+        vector<Board::Move> ml(Board::searchBestMove(brd,depth,true));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
