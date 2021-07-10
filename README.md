@@ -32,7 +32,9 @@ The number of generated moves at a given depth is compared to a reference value.
 
 Since all tests pass, there is a very high probability that the move generator is ok.
 
-Example:
+Example (fen: "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"), see `perft/perft.cpp`
+for more.
+
 ![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/strangebugs.png)
 ```
 Active: White
