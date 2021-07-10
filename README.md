@@ -8,8 +8,6 @@ None. Console font needs to support Unicode characters for chess.
 
 ## Build
 
-Travis CI status: [![Build Status](https://travis-ci.org/domschl/console-chess.svg?branch=master)](https://travis-ci.org/domschl/console-chess)
-
 `console-chess` uses the `cmake` build system:
 
 ```bash
@@ -18,9 +16,26 @@ cd Build
 
 cmake ..
 make
-chess/chess
 ```
+
+Run `perft` tests with:
+
+
+```
+perft/perft
+```
+
+Play simple game:
+
+```
+turquoise/turquoise
+```
+(Simply enter UCI-formatted moves for white, e.g. `e2-e2`.)
 
 ## Sample output
 
-![chess output](doc/images/chess.png)
+TBD
+
+## History
+
+* 2021-07-10: Replaced old console chess with working version of turquoise test engine
