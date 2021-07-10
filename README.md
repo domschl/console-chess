@@ -93,6 +93,27 @@ Game over!
 
 ![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/pos2.png)
 
+### The Indian problem (mate in 4)
+The first published chess puzzle was the 'Indian Problem'. It was printed in The Chess Player's Chronicle, in 1845. 
+
+Start with Fen: `turquoise/turquoise -f "8/8/1p5B/1p2p3/4k1P1/1P3n2/P4PB1/K2R4 w - - 0 1"`
+
+![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/indian-problem-mate-4.png)
+
+```
+Best line, depth=1/8, nodes=660: d1-e1 (3640) e4-d5 (-3640)
+Best line, depth=2/11, nodes=5,008: d1-e1 (4994) e4-d4 (-3640)
+Best line, depth=3/13, nodes=30,693: d1-d6 (4229) b5-b4 (-3640)
+Best line, depth=4/14, nodes=215,149: d1-e1 (5100) e4-d4 (-3640)
+Best line, depth=5/18, nodes=1,328,816: d1-e1 (5509) e4-d3 (-3640)
+Best line, depth=6/20, nodes=3,054,985: d1-d6 (5399) b5-b4 (-3640) d6-g6 (3640) e4-d4 (-3640) h6-e3 (3640) d4-c3 (-3640) e3-b6 (4040) c3-c2 (-4040) g2-f3 (5200)
+d1-d6 (2147483645)
+...
+b5-b4, h6-c1, b6-b5, d6-d2, e4-f4, d2-d4#
+```
+
+![](https://raw.githubusercontent.com/domschl/console-chess/master/doc/resources/indian-problem-end.png)
+
 ## History
 
 * 2021-07-10: Replaced old console chess with working version of turquoise test engine
