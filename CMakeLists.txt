@@ -11,10 +11,12 @@ ELSE()
    SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel.")
 ENDIF()
 
+set(CMAKE_GENERATOR "Ninja" CACHE STRING "Selected build system")
+
 set(CMAKE_CXX_FLAGS_DEBUG  "-g")
 set(CMAKE_CXX_FLAGS_DEBUG  "-ggdb")
 
-project(chess)
+project(turquoise-chess-engine)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -60,7 +62,10 @@ if (WITH_OPENMP)
     endif()
 endif()
 
-add_subdirectory (chess)
-include_directories("chess")
+include_directories("engine")
 
-set_property(TARGET chess PROPERTY CXX_STANDARD 11)
+add_subdirectory (turquoise)
+add_subdirectory (perft)
+
+set_property(TARGET turquoise PROPERTY CXX_STANDARD 11)
+set_property(TARGET perft PROPERTY CXX_STANDARD 11)
