@@ -6,6 +6,7 @@
 #include <codecvt>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <algorithm>
 
 using std::endl;
@@ -14,9 +15,59 @@ using std::string;
 using std::stringstream;
 using std::to_wstring;
 using std::vector;
+using std::map;
 using std::wcout;
 using std::wcin;
 using std::wstring;
+
+// from: https://rosettacode.org/wiki/CRC-32#C
+uint32_t crc32(uint32_t crc, const unsigned char *buf, size_t len)
+{
+	static uint32_t table[256];
+	static int have_table = 0;
+	uint32_t rem;
+	uint8_t octet;
+	int i, j;
+	const unsigned char *p, *q;
+ 
+	/* This check is not thread safe; there is no mutex. */
+	if (have_table == 0) {
+		/* Calculate CRC table. */
+		for (i = 0; i < 256; i++) {
+			rem = i;  /* remainder from polynomial division */
+			for (j = 0; j < 8; j++) {
+				if (rem & 1) {
+					rem >>= 1;
+					rem ^= 0xedb88320;
+				} else
+					rem >>= 1;
+			}
+			table[i] = rem;
+		}
+		have_table = 1;
+	}
+ 
+	crc = ~crc;
+	q = buf + len;
+	for (p = buf; p < q; p++) {
+		octet = *p;  /* Cast to unsigned octet. */
+		crc = (crc >> 8) ^ table[(crc & 0xff) ^ octet];
+	}
+	return ~crc;
+}
+ 
+struct BrdCacheEnt {
+    int score;
+    int depth;
+    uint32_t crc;
+};
+
+struct Board;
+
+map<string,unsigned int> BrdHashIndex;
+vector<BrdCacheEnt> BrdCache;
+unsigned int maxBrdCache;
+unsigned int brdCachePointer;
 
 enum PieceType {
     Empty = 0,
@@ -88,18 +139,19 @@ class Term {
     }
 };
 
-#define MAX_EVAL INT_MAX
-#define MIN_EVAL (INT_MIN + 3)
+#define MAX_EVAL (INT_MAX-3)
+#define MIN_EVAL (- MAX_EVAL)
 #define INVALID_EVAL INT_MIN
+
 
 struct Board {
     unsigned char field[120];
+    Color activeColor;
+    unsigned char hasCastled;
     unsigned char castleRights;
     unsigned char fiftyMoves;
     unsigned char epPos;
-    Color activeColor;
     unsigned int moveNumber;
-    unsigned char hasCastled;
 
     Board() {
         startPosition();
@@ -643,6 +695,18 @@ struct Board {
             return false;
         else
             return true;
+    }
+
+    void resetEvalCache() {
+    }
+    
+    void pushEvalCache(Board brd, int depth, int score) {
+        uint32_t c=0;
+        c=crc32(c,(const unsigned char *)&(brd.field[21]),68);
+    }
+
+    bool readEvalCache(Board brd, int depth, int *pScore) {
+        return false;
     }
 
     vector<Move> rawMoveList() {
@@ -1408,7 +1472,7 @@ struct Board {
                 if (eval > bestEval) {
                     bestEval = eval;
                     best_principal = principal;
-                    if (bestEval >= -MIN_EVAL)
+                    if (bestEval == MAX_EVAL)
                         break;
                     //printMoveList(best_principal, L" Current line");
                 }
@@ -1420,7 +1484,7 @@ struct Board {
             wcout << "Best line, depth=" << d << L"/" << curMaxDynamicDepth << L", nodes=" << nodes;
             printMoveList(best_principal, L"");
             vml.erase(vml.begin(), vml.end());
-            if (bestEval<=MIN_EVAL || bestEval>=-MIN_EVAL) {
+            if (bestEval==MIN_EVAL || bestEval== MAX_EVAL) {
                 // wcout << L"Search exhausted" << endl;
                 break;
             }
