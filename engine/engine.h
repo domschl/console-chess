@@ -20,6 +20,8 @@ using std::wcout;
 using std::wcin;
 using std::wstring;
 
+#define MAX_EVAL_CACHE_ENTRIES 100000000
+
 // from: https://rosettacode.org/wiki/CRC-32#C
 uint32_t crc32(uint32_t crc, const unsigned char *buf, size_t len)
 {
@@ -56,18 +58,21 @@ uint32_t crc32(uint32_t crc, const unsigned char *buf, size_t len)
 	return ~crc;
 }
  
-struct BrdCacheEnt {
+struct EvalCacheEntry {
     int score;
     int depth;
-    uint32_t crc;
+    string sfen; // check for conflicts
 };
 
 struct Board;
 
-map<string,unsigned int> BrdHashIndex;
-vector<BrdCacheEnt> BrdCache;
-unsigned int maxBrdCache;
-unsigned int brdCachePointer;
+map<string,unsigned int> evalCacheHash;
+vector<EvalCacheEntry> evalCache;
+unsigned int maxEvalCacheEntries;
+unsigned int evalCachePointer;
+unsigned long evalCacheHit;
+unsigned long evalCacheMiss;
+bool evalCacheIsInit=false;
 
 enum PieceType {
     Empty = 0,
@@ -233,7 +238,7 @@ struct Board {
         }
     }
 
-    string fen() {
+    string fen(bool shortFen=false) {
         string f = "";
         for (int y = 7; y >= 0; y--) {
             int bl = 0;
@@ -272,7 +277,9 @@ struct Board {
             cr += "q";
         if (cr == "")
             cr = "-";
-        f += cr + " ";
+        f += cr;
+        if (shortFen) return f;
+        f += " ";
         string ep = "";
         if (epPos != 0) {
             ep = pos2string(epPos);
@@ -697,15 +704,100 @@ struct Board {
             return true;
     }
 
-    void resetEvalCache() {
-    }
-    
-    void pushEvalCache(Board brd, int depth, int score) {
-        uint32_t c=0;
-        c=crc32(c,(const unsigned char *)&(brd.field[21]),68);
+    static void resetEvalCache() {
+        evalCache.clear();
+        evalCacheHash.clear();
+        maxEvalCacheEntries=MAX_EVAL_CACHE_ENTRIES;
+        evalCachePointer=0;
+        evalCacheHit=0;
+        evalCacheMiss=0;
+        evalCacheIsInit=true;
     }
 
-    bool readEvalCache(Board brd, int depth, int *pScore) {
+    static void pushEvalCache(Board brd, int depth, int score) {
+        unsigned int ind;
+        EvalCacheEntry ece;
+        std::map<string,unsigned int>::iterator it;
+        string sfen=brd.fen(true);        
+        if (!evalCacheIsInit) resetEvalCache();
+        it=evalCacheHash.find(sfen);
+        if (it!=evalCacheHash.end()) {
+            ind=evalCacheHash[sfen];
+            if (ind >= evalCache.size()) {
+                wcout << L"bad evalCache index out of range!, fix!" << endl;
+                exit(-1);
+            }
+            ece=evalCache[ind];
+            if (sfen!=ece.sfen) {
+                wcout << L"bad evalCache update for wrong sfen, fix!" << endl;
+                exit(-1);
+            }
+            if (depth<ece.depth) {
+                //wcout << L"bad cache write: better entry already available, fix!" << endl;
+                //exit(-1);
+                return;
+            } else {
+                if (ece.sfen != sfen) {
+                    wcout << L"bad cache update: linked entry with wrong sfen, fix!" << endl;
+                    exit(-1);                    
+                }
+                ece.depth=depth;
+                ece.score=score;
+                evalCache[ind]=ece;
+            }
+        } else { 
+            if (evalCache.size()==maxEvalCacheEntries) {
+                ece=evalCache[evalCachePointer];
+                it=evalCacheHash.find(ece.sfen);
+                if (it!=evalCacheHash.end()) { 
+                    evalCacheHash.erase(it);
+                    evalCacheHash[sfen]=evalCachePointer;
+                    ece.depth=depth;
+                    ece.score=score;
+                    ece.sfen=sfen;
+                    evalCache[evalCachePointer]=ece;
+                    evalCachePointer=(evalCachePointer+1)%maxEvalCacheEntries;
+                } else {
+                    wcout << L"hash table inconsistent, please fix first!" << endl;
+                    exit(-1);
+                }
+            } else {
+                ece.depth=depth;
+                ece.score=score;
+                ece.sfen=sfen;
+                evalCache.push_back(ece);
+                ind=evalCache.size()-1;
+                evalCacheHash[sfen]=ind;
+            }
+        }
+    }
+
+    static bool readEvalCache(Board brd, int depth, int *pScore, int *pCacheDepth=nullptr) {
+        unsigned int ind;
+        EvalCacheEntry ece;
+        std::map<string,unsigned int>::iterator it;
+        string sfen=brd.fen(true);        
+        if (!evalCacheIsInit) resetEvalCache();
+        it=evalCacheHash.find(sfen);
+        if (it!=evalCacheHash.end()) {
+            ind=evalCacheHash[sfen];
+            if (ind >= evalCache.size()) {
+                wcout << L"bad evalCache index out of range!, fix!" << endl;
+                exit(-1);
+            }
+            ece=evalCache[ind];
+            if (ece.sfen != sfen) {
+                wcout << L"bad cache read: linked entry with wrong sfen, fix!" << endl;
+                exit(-1);                    
+            }
+            if (ece.depth==depth) {
+                *pScore=ece.score;
+                if (pCacheDepth!=nullptr) *pCacheDepth=ece.depth;
+                ++evalCacheHit;
+                return true;
+            }
+        }
+        ++evalCacheMiss;
         return false;
     }
 
@@ -1384,6 +1476,10 @@ struct Board {
         //printMoveList(ml, L"ML");
         ++(*pNodes);
 
+        if (readEvalCache(brd,curDepth,&eval)) {
+            return eval;
+        }
+
         if (depth > maxD)
             maxD = depth;
         if (curDepth > *pCurDynDepth)
@@ -1393,18 +1489,18 @@ struct Board {
         }
         isCheck=brd.inCheck(brd.activeColor);
         if (gameOver) {
-            if (!isCheck)
-                return 0;
-            return MIN_EVAL;
+            if (!isCheck) {
+                eval=0;
+            } else {
+                eval=MIN_EVAL;
+            }
+            pushEvalCache(brd,curDepth,eval);            
+            return eval;
         }
         if (!isCheck && depth <= 0 && ((brd.field[ml[0].to]==0 || siled) || depth <= maxCaptures)) {
-            // if (brd.activeColor==White)
-            //if ((curDepth+1)%2)
-            //    return ml[0].eval;
-            //else
-            //wcout << L"E=" << ml[0].eval << endl;
-            //return ml[0].eval;
-            return Board::eval(brd,brd.activeColor,false);
+            eval=Board::eval(brd,brd.activeColor,false);
+            pushEvalCache(brd,curDepth,eval);            
+            return eval; 
         }
 
         origAlpha=alpha;
@@ -1445,7 +1541,7 @@ struct Board {
         if (endEval > origAlpha &&  endEval < origBeta) {
             principal = hist_scr;
         }
-
+        //pushEvalCache(brd,curDepth,endEval);
         return endEval;
     }
 
@@ -1481,6 +1577,7 @@ struct Board {
             ml = vml;
             //wcout << "Move list, depth=" << d;
             //printMoveList(ml, L"");
+            wcout << L"Cache hit: " << evalCacheHit << L", miss: " << evalCacheMiss << L", " << evalCacheHit*100L/(evalCacheHit+evalCacheMiss) << L"%" << endl;
             wcout << "Best line, depth=" << d << L"/" << curMaxDynamicDepth << L", nodes=" << nodes;
             printMoveList(best_principal, L"");
             vml.erase(vml.begin(), vml.end());
