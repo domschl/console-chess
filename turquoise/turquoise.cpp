@@ -62,7 +62,7 @@ void miniGame() {
             wcout << L"Invalid move!" << endl;
             continue;
         }
-        vector<Board::Move> ml(Board::searchBestMove(brd,4));
+        vector<Board::Move> ml(Board::searchBestMove(brd,6));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;

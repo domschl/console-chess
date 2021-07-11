@@ -790,7 +790,7 @@ struct Board {
                 wcout << L"bad cache read: linked entry with wrong sfen, fix!" << endl;
                 exit(-1);                    
             }
-            if (ece.depth==depth) {
+            if (ece.depth==depth || (ece.depth>depth && ((ece.depth-depth)%2)==0)) {
                 *pScore=ece.score;
                 if (pCacheDepth!=nullptr) *pCacheDepth=ece.depth;
                 ++evalCacheHit;
@@ -1373,6 +1373,15 @@ struct Board {
             {1, 1, 1, 1, 1, 1, 1, 1},            
         };
         int x,y;
+        /*
+        if (fast) {
+            Board brd2(brd);
+            //brd2.activeColor=pov;
+            if (readEvalCache(brd2,2,&evl)) {
+                return evl;
+            }
+        }
+        */
         for (int fInd = 21; fInd < 99; fInd++) {
             fig = brd.field[fInd];
             if (fig == 0xff)
