@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
+#include <time.h>
 
 using std::endl;
 using std::getline;
@@ -20,7 +21,7 @@ using std::wcout;
 using std::wcin;
 using std::wstring;
 
-#define MAX_EVAL_CACHE_ENTRIES 1000000
+#define MAX_EVAL_CACHE_ENTRIES 2000000
 #define USE_EVAL_CACHE 1
 
 struct EvalCacheEntry {
@@ -1527,14 +1528,17 @@ struct Board {
         return endEval;
     }
 
-    static vector<Move> searchBestMove(Board brd, int depth, int *pNodes, bool fastSearch=false) {
+    static vector<Move> searchBestMove(Board brd, int depth, int *pNodes, int timeLimit=0, bool fastSearch=false) {
         vector<Move> ml(brd.moveList(true, fastSearch)), vml, best_principal, principal, history;
         Board newBoard;
         int bestEval, eval;
+        time_t start;
 
         int curMaxDynamicDepth;
+        start=time(nullptr);
         //printMoveList(ml, L"Initial sort");
         for (int d = 1; d < depth; d++) {
+            if (timeLimit && (time(nullptr)-start > timeLimit/2)) break;
             curMaxDynamicDepth = 0;
             bestEval = MIN_EVAL;
             for (Move mv : ml) {

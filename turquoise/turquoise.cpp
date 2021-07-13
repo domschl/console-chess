@@ -85,7 +85,7 @@ void miniGame() {
         evalCacheHit=0;
         evalCacheMiss=0;
         timespec_get(&start, TIME_UTC);
-        vector<Board::Move> ml(Board::searchBestMove(brd,4,&nodes));
+        vector<Board::Move> ml(Board::searchBestMove(brd,40,&nodes,30));
         timespec_get(&stop, TIME_UTC);
         double dur=tsdiff(start,stop);
         wcout << L"Nodes: " << nodes << L", duration: " << dur << L", nps: " << nodes/dur << endl;
