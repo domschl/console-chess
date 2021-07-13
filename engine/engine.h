@@ -6,7 +6,7 @@
 #include <codecvt>
 #include <sstream>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <algorithm>
 
 using std::endl;
@@ -15,12 +15,13 @@ using std::string;
 using std::stringstream;
 using std::to_wstring;
 using std::vector;
-using std::map;
+using std::unordered_map;
 using std::wcout;
 using std::wcin;
 using std::wstring;
 
-#define MAX_EVAL_CACHE_ENTRIES 100000000
+#define MAX_EVAL_CACHE_ENTRIES 1000000
+#define USE_EVAL_CACHE 1
 
 struct EvalCacheEntry {
     int score;
@@ -30,7 +31,7 @@ struct EvalCacheEntry {
 
 struct Board;
 
-map<string,unsigned int> evalCacheHash;
+unordered_map<string,unsigned int> evalCacheHash;
 vector<EvalCacheEntry> evalCache;
 unsigned int maxEvalCacheEntries;
 unsigned int evalCachePointer;
@@ -681,8 +682,11 @@ struct Board {
     static void pushEvalCache(Board brd, int depth, int score) {
         unsigned int ind;
         EvalCacheEntry ece;
-        std::map<string,unsigned int>::iterator it;
-        string sfen=brd.fen(true);        
+        std::unordered_map<string,unsigned int>::iterator it;
+        string sfen=brd.fen(true);
+        #ifndef USE_EVAL_CACHE
+        return;
+        #endif
         if (!evalCacheIsInit) resetEvalCache();
         it=evalCacheHash.find(sfen);
         if (it!=evalCacheHash.end()) {
@@ -739,8 +743,11 @@ struct Board {
     static bool readEvalCache(Board brd, int depth, int *pScore, int *pCacheDepth=nullptr) {
         unsigned int ind;
         EvalCacheEntry ece;
-        std::map<string,unsigned int>::iterator it;
-        string sfen=brd.fen(true);        
+        std::unordered_map<string,unsigned int>::iterator it;
+        string sfen=brd.fen(true);
+        #ifndef USE_EVAL_CACHE
+        return false;
+        #endif
         if (!evalCacheIsInit) resetEvalCache();
         it=evalCacheHash.find(sfen);
         if (it!=evalCacheHash.end()) {
@@ -754,7 +761,7 @@ struct Board {
                 wcout << L"bad cache read: linked entry with wrong sfen, fix!" << endl;
                 exit(-1);                    
             }
-            if (ece.depth==depth || (ece.depth>depth && ((ece.depth-depth)%2)==0)) {
+            if (ece.depth==depth /*|| (ece.depth > depth && !((ece.depth-depth)%2))*/ ) {
                 *pScore=ece.score;
                 if (pCacheDepth!=nullptr) *pCacheDepth=ece.depth;
                 ++evalCacheHit;
@@ -1472,7 +1479,9 @@ struct Board {
         }
         if (!isCheck && depth <= 0 && ((brd.field[ml[0].to]==0 || siled) || depth <= maxCaptures)) {
             eval=Board::eval(brd,brd.activeColor,false);
-            pushEvalCache(brd,curDepth,eval);            
+            if (depth>=0) {
+                pushEvalCache(brd,curDepth,eval);
+            }
             return eval; 
         }
 
@@ -1518,13 +1527,12 @@ struct Board {
         return endEval;
     }
 
-    static vector<Move> searchBestMove(Board brd, int depth, bool fastSearch=false) {
+    static vector<Move> searchBestMove(Board brd, int depth, int *pNodes, bool fastSearch=false) {
         vector<Move> ml(brd.moveList(true, fastSearch)), vml, best_principal, principal, history;
         Board newBoard;
         int bestEval, eval;
 
         int curMaxDynamicDepth;
-        int nodes=0;
         //printMoveList(ml, L"Initial sort");
         for (int d = 1; d < depth; d++) {
             curMaxDynamicDepth = 0;
@@ -1535,7 +1543,7 @@ struct Board {
                 history.erase(history.begin(), history.end());
                 history.push_back(mv);
                 eval = -negamax(newBoard, d, history, principal, newBoard.activeColor,
-                                &nodes, &curMaxDynamicDepth);
+                                pNodes, &curMaxDynamicDepth);
                 mv.eval = eval;
                 vml.push_back(mv);
                 if (eval > bestEval) {
@@ -1550,8 +1558,8 @@ struct Board {
             ml = vml;
             //wcout << "Move list, depth=" << d;
             //printMoveList(ml, L"");
-            wcout << L"Cache hit: " << evalCacheHit << L", miss: " << evalCacheMiss << L", " << evalCacheHit*100L/(evalCacheHit+evalCacheMiss) << L"%" << endl;
-            wcout << "Best line, depth=" << d << L"/" << curMaxDynamicDepth << L", nodes=" << nodes;
+            wcout << L"Cache hit: " << evalCacheHit << L", miss: " << evalCacheMiss << L", " << evalCacheHit*100L/(evalCacheHit+evalCacheMiss) << L"%" << L" ECH-size: " << evalCacheHash.size() << L" EC-size: " << evalCache.size() << endl;
+            wcout << "Best line, depth=" << d << L"/" << curMaxDynamicDepth << L", nodes=" << *pNodes;
             printMoveList(best_principal, L"");
             vml.erase(vml.begin(), vml.end());
             if (bestEval==MIN_EVAL || bestEval== MAX_EVAL) {

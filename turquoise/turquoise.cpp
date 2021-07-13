@@ -1,4 +1,6 @@
 #include <engine.h>
+#include <time.h>
+
 
 /*
 vector<Board::Move> doShowMoves(Board brd) {
@@ -13,9 +15,18 @@ vector<Board::Move> doShowMoves(Board brd) {
     return ml;
 }
 */
+
+double tsdiff(timespec start, timespec stop) {
+    double ns=1000000000.0;
+    return (stop.tv_sec*ns+stop.tv_nsec-start.tv_sec*ns-start.tv_nsec)/ns;
+}
+
 void miniAutoGame(string fen="") {
     string start_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     int depth;
+    int nr=1;
+    timespec start, stop;
+    int nodes;
     
     if (fen=="") {
         fen=start_fen;
@@ -25,18 +36,24 @@ void miniAutoGame(string fen="") {
     }
     Board brd(fen);
 
+    timespec_get(&start, TIME_UTC);
+    nodes=0;
     for (int i=0; i<50; i++) {
         wcout << endl;
         brd.printPos(&brd,-1);
         
-        vector<Board::Move> ml(Board::searchBestMove(brd,depth,true));
+        vector<Board::Move> ml(Board::searchBestMove(brd,depth,&nodes,true));
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
         }
         brd=brd.rawApply(ml[0]); 
-        wcout << stringenc(ml[0].toUciWithEval()) << endl;
+        wcout << nr << L". " << stringenc(ml[0].toUciWithEval()) << endl;
+        ++nr;
     }
+    timespec_get(&stop, TIME_UTC);
+    double dur=tsdiff(start,stop);
+    wcout << L"Nodes: " << nodes << L", duration: " << dur << L", nps: " << nodes/dur << endl;
 }
 
 void miniGame() {
@@ -45,6 +62,8 @@ void miniGame() {
     brd.printPos(&brd,-1);
     vector<Board::Move> ml;
     string ascMove;
+    int nodes;
+    timespec start, stop;
     while (true) {
         wcout << L"> ";
         std::cin >> ascMove;
@@ -62,7 +81,14 @@ void miniGame() {
             wcout << L"Invalid move!" << endl;
             continue;
         }
-        vector<Board::Move> ml(Board::searchBestMove(brd,6));
+        nodes=0;
+        evalCacheHit=0;
+        evalCacheMiss=0;
+        timespec_get(&start, TIME_UTC);
+        vector<Board::Move> ml(Board::searchBestMove(brd,4,&nodes));
+        timespec_get(&stop, TIME_UTC);
+        double dur=tsdiff(start,stop);
+        wcout << L"Nodes: " << nodes << L", duration: " << dur << L", nps: " << nodes/dur << endl;
         if (ml.size()==0) {
             wcout << L"Game over!" << endl;
             break;
